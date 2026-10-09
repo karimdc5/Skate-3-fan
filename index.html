@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Skate Fan">
+  <meta name="theme-color" content="#111318">
+  <meta name="description" content="Skate Fan: an unofficial, Skate 3-inspired skateboarding game for iPhone and the browser, with Xbox and PS5 controller support.">
+  <title>Skate Fan</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- ===== HUD ===== -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="score-box">
+        <div class="score-label">SCORE</div>
+        <div id="score">0</div>
+        <div id="best" class="best">BEST 0</div>
+      </div>
+      <div id="line" class="line"></div>
+      <div class="hud-buttons">
+        <button class="icon-btn" id="btnMarker" title="Set spawn marker" aria-label="Set spawn marker">📍</button>
+        <button class="icon-btn" id="btnRespawn" title="Go to marker" aria-label="Go to marker">⟲</button>
+        <button class="icon-btn" id="btnPad" title="Controllers" aria-label="Controllers">🎮<span id="padDot" class="pad-dot"></span></button>
+        <button class="icon-btn" id="btnPause" title="Pause" aria-label="Pause">❚❚</button>
+      </div>
+    </div>
+    <div id="trickPop" class="trick-pop"></div>
+    <div id="toast" class="toast"></div>
+    <div id="speedo" class="speedo">0 km/h</div>
+  </div>
+
+  <!-- ===== TOUCH CONTROLS ===== -->
+  <div id="touch" class="hidden">
+    <div id="zoneLeft" class="zone zone-left"></div>
+    <div id="zoneRight" class="zone zone-right"></div>
+    <div id="stickL" class="stick"><div class="knob"></div></div>
+    <div id="stickR" class="stick flick"><div class="knob"></div></div>
+    <div id="flickHint" class="flick-hint">SWIPE HERE<br><small>tap = ollie</small></div>
+    <button id="tBrake" class="tbtn tbrake">BRAKE</button>
+    <button id="tGrab" class="tbtn tgrab">GRAB</button>
+    <button id="tPush" class="tbtn tpush">PUSH</button>
+  </div>
+
+  <!-- ===== MAIN MENU ===== -->
+  <div id="menu" class="overlay">
+    <div class="panel menu-panel">
+      <div class="logo">SKATE<span>FAN</span></div>
+      <div class="tag">An unofficial fan game inspired by Skate 3</div>
+      <button class="big" id="mPlay">PLAY</button>
+      <button id="mControllers">🎮 Controllers (Xbox / PS5)</button>
+      <button id="mHow">How to play</button>
+      <button id="mSettings">Settings</button>
+      <div class="small muted">Tip: in Safari tap Share → <b>Add to Home Screen</b> for full screen.</div>
+    </div>
+  </div>
+
+  <!-- ===== PAUSE ===== -->
+  <div id="pause" class="overlay hidden">
+    <div class="panel">
+      <h2>Paused</h2>
+      <button class="big" id="pResume">RESUME</button>
+      <div class="row">
+        <button id="pSpawnPlaza">Plaza</button>
+        <button id="pSpawnHalf">Halfpipe</button>
+        <button id="pSpawnHill">Big Hill</button>
+      </div>
+      <button id="pControllers">🎮 Controllers</button>
+      <button id="pHow">How to play</button>
+      <button id="pSettings">Settings</button>
+      <h3>Challenges <span id="chCount" class="muted"></span></h3>
+      <ul id="challenges" class="challenges"></ul>
+    </div>
+  </div>
+
+  <!-- ===== HOW TO PLAY ===== -->
+  <div id="how" class="overlay hidden">
+    <div class="panel wide">
+      <h2>How to play</h2>
+      <div class="cols">
+        <div>
+          <h3>📱 Touch</h3>
+          <ul>
+            <li><b>Left thumb</b>: drag to steer / spin in the air</li>
+            <li><b>PUSH</b>: speed up · <b>BRAKE</b>: slow down</li>
+            <li><b>Right side</b>: swipe for tricks
+              <ul>
+                <li>Tap or ↑ Ollie · ↖ Kickflip · ↗ Heelflip</li>
+                <li>← Pop Shove-it · → FS Shove-it</li>
+                <li>↙ 360 Flip · ↘ Laser Flip</li>
+                <li>Swipe ↓ and hold = Manual</li>
+              </ul>
+            </li>
+            <li><b>GRAB</b>: hold in the air, let go before landing</li>
+            <li>Switch to <b>Pro flick</b> in Settings for the real Skate-style flick</li>
+          </ul>
+        </div>
+        <div>
+          <h3>🎮 Controller (flick-it)</h3>
+          <ul>
+            <li><b>Left stick</b>: steer, spin in air, pick grab/grind</li>
+            <li><b>Right stick</b>: pull ↓ then flick ↑ = Ollie</li>
+            <li>↓ then flick ↖ / ↗ = Kickflip / Heelflip</li>
+            <li>↓ then roll through ← or → up = 360 Flip / Laser Flip</li>
+            <li>↓ then ← or → and let go = Shove-its</li>
+            <li>Start ↑ instead of ↓ = Nollie version</li>
+            <li>Hold ↓ softly = Manual, hold ↑ = Nose manual</li>
+            <li>A / ✕ Push · X / □ Brake · LT RT / L2 R2 Grabs</li>
+            <li>Y / △ Back to marker · D-pad ↑ Set marker · B / ○ Camera</li>
+          </ul>
+          <h3>⌨️ Keyboard</h3>
+          <ul>
+            <li>WASD steer/push/brake · Space Ollie · Q Kickflip · E Heelflip</li>
+            <li>R Shove-it · F 360 Flip · Z/C Grab · T Marker · V Camera · Esc Pause</li>
+          </ul>
+        </div>
+      </div>
+      <p class="muted small">Land with your board lined up with where you're going (forwards or fakie). Spin halfway and you'll bail. Grind by landing on rails, ledges and coping.</p>
+      <button class="big close">GOT IT</button>
+    </div>
+  </div>
+
+  <!-- ===== SETTINGS ===== -->
+  <div id="settings" class="overlay hidden">
+    <div class="panel">
+      <h2>Settings</h2>
+      <label class="opt"><span>Trick controls (touch)</span>
+        <select id="sFlickMode"><option value="simple">Simple swipe</option><option value="pro">Pro flick (Skate style)</option></select></label>
+      <label class="opt"><span>Auto-push (touch)</span><input type="checkbox" id="sAutoPush"></label>
+      <label class="opt"><span>Left-handed touch layout</span><input type="checkbox" id="sLefty"></label>
+      <label class="opt"><span>Sound</span><input type="checkbox" id="sSound" checked></label>
+      <label class="opt"><span>Camera</span>
+        <select id="sCamera"><option value="skate">Skate cam (low)</option><option value="far">Far cam</option></select></label>
+      <label class="opt"><span>Graphics</span>
+        <select id="sQuality"><option value="high">High (shadows)</option><option value="low">Battery saver</option></select></label>
+      <button id="sReset" class="danger">Reset score &amp; challenges</button>
+      <button class="big close">DONE</button>
+    </div>
+  </div>
+
+  <!-- ===== CONTROLLER TOOL ===== -->
+  <div id="pads" class="overlay hidden">
+    <div class="panel wide">
+      <h2>🎮 Controller Connect</h2>
+      <div class="tabs">
+        <button class="tab active" data-tab="xbox">Xbox</button>
+        <button class="tab" data-tab="ps">PS5 DualSense</button>
+      </div>
+      <ol class="steps" id="stepsXbox">
+        <li>Turn the controller on by holding the <b>Xbox button</b>.</li>
+        <li>Hold the small <b>Pair button</b> (top edge, near the USB port) until the Xbox logo flashes fast.</li>
+        <li>On your iPhone open <b>Settings → Bluetooth</b> and tap <b>Xbox Wireless Controller</b>.</li>
+        <li>Come back here and <b>press any button</b> on the controller.</li>
+      </ol>
+      <ol class="steps hidden" id="stepsPs">
+        <li>With the controller off, hold <b>Create</b> (left of the touchpad) and the <b>PS button</b> together.</li>
+        <li>Let go when the light bar around the touchpad starts flashing.</li>
+        <li>On your iPhone open <b>Settings → Bluetooth</b> and tap <b>DualSense Wireless Controller</b>.</li>
+        <li>Come back here and <b>press any button</b> on the controller.</li>
+      </ol>
+      <p class="muted small">Safari only shows a controller after you press a button while this page is open. Needs iOS 15 or newer. Already paired before? Just turn the controller on and press a button.</p>
+
+      <h3>Detected controllers</h3>
+      <div id="padList" class="pad-list"><div class="muted">No controller yet. Press a button on your controller…</div></div>
+
+      <div id="tester" class="tester hidden">
+        <h3>Live test</h3>
+        <div class="pad-vis" id="padVis"></div>
+        <div class="row small">
+          <span>Flick seen: <b id="flickSeen">–</b></span>
+        </div>
+      </div>
+
+      <h3>Tuning</h3>
+      <label class="opt"><span>Stick deadzone <b id="dzVal"></b></span><input type="range" id="pDeadzone" min="0.05" max="0.4" step="0.01"></label>
+      <label class="opt"><span>Swap sticks (steer right, flick left)</span><input type="checkbox" id="pSwap"></label>
+      <label class="opt"><span>Rumble</span><input type="checkbox" id="pRumble"></label>
+      <button id="pRumbleTest">Test rumble</button>
+
+      <h3>Button mapping</h3>
+      <div id="mapList" class="map-list"></div>
+      <div class="row">
+        <button id="pMapReset">Reset to default</button>
+      </div>
+      <button class="big close">DONE</button>
+    </div>
+  </div>
+
+  <div id="rotate" class="overlay hidden">
+    <div class="panel">
+      <div class="rotate-icon">📱↻</div>
+      <h2>Turn your phone sideways</h2>
+      <p class="muted">Skate Fan plays best in landscape.</p>
+      <button id="rotateDismiss">Play anyway</button>
+    </div>
+  </div>
+
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.js" } }
+  </script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
