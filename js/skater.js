@@ -16,8 +16,10 @@ const BONES = ['Skull', 'Jaw', 'Collarbone', 'Left Wrist', 'Right Wrist', 'Left 
   'Ribs', 'Pelvis', 'Tailbone', 'Left Femur', 'Right Femur', 'Left Kneecap', 'Right Kneecap', 'Left Ankle',
   'Right Ankle', 'Spine', 'Nose', 'Left Shoulder', 'Right Shoulder'];
 
+// Default look: white tank top, black baggy pants, no hat (like the Skate 3 demo skater)
 export const DEFAULT_LOOK = {
-  shirt: '#d62828', pants: '#1d3557', skin: '#e0ac69', shoes: '#f1f1f1', cap: '#111111', deck: '#ffcc00', stance: 'regular',
+  shirt: '#f2f2f0', pants: '#1b1b1d', skin: '#6b4528', shoes: '#2a2a2a', cap: '#111111', hair: '#141010',
+  deck: '#d8b56a', stance: 'regular', top: 'tank', hat: 'none',
 };
 
 const v1 = new THREE.Vector3();
@@ -91,6 +93,7 @@ export class Skater {
     this.mats = {
       shirt: mat(0xd62828), pants: mat(0x1d3557), skin: mat(0xe0ac69), shoes: mat(0xf1f1f1),
       cap: mat(0x111111), deck: mat(0xffcc00), grip: mat(0x1b1b1b),
+      hair: mat(0x141010, { roughness: 1 }), sole: mat(0xf4f4f4),
     };
     const M = this.mats;
 
@@ -121,67 +124,115 @@ export class Skater {
     this.root.add(this.boardPivot);
 
     // body (faces local -x, board nose is +z; goofy mirrors it)
+    // Rounded capsule limbs for a more natural, Skate-like silhouette.
     this.body = new THREE.Group();
     this.root.add(this.body);
+    const cap = (r, len, m) => new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.01, len), 4, 10), m);
 
     this.hips = new THREE.Group();
     this.body.add(this.hips);
-    this.hips.add(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.14, 0.34), M.pants));
+    const pelvis = cap(0.12, 0.16, M.pants);
+    pelvis.rotation.x = Math.PI / 2;
+    pelvis.scale.set(0.95, 1, 0.8);
+    this.hips.add(pelvis);
 
     this.legs = [];
     for (const side of [1, -1]) {
       const hip = new THREE.Group();
       hip.position.set(0, 0, side * 0.11);
       this.body.add(hip);
-      const thigh = new THREE.Mesh(new THREE.BoxGeometry(0.13, THIGH, 0.13), M.pants);
+      // baggy pants: wide thigh, slightly narrower shin
+      const thigh = cap(0.085, THIGH - 0.1, M.pants);
       thigh.position.y = -THIGH / 2;
       hip.add(thigh);
       const knee = new THREE.Group();
       knee.position.y = -THIGH;
       hip.add(knee);
-      const shin = new THREE.Mesh(new THREE.BoxGeometry(0.11, SHIN, 0.11), M.pants);
-      shin.position.y = -SHIN / 2;
+      const shin = cap(0.078, SHIN - 0.1, M.pants);
+      shin.position.y = -SHIN / 2 + 0.01;
       knee.add(shin);
+      const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.09, 0.08, 10), M.pants);
+      cuff.position.y = -SHIN + 0.07;
+      knee.add(cuff);
       const foot = new THREE.Group();
       foot.position.y = -SHIN;
       knee.add(foot);
-      const shoeMesh = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.07, 0.11), M.shoes);
-      shoeMesh.position.set(-0.03, -0.03, 0);
-      foot.add(shoeMesh);
+      const shoe = cap(0.055, 0.17, M.shoes);
+      shoe.rotation.z = Math.PI / 2;
+      shoe.scale.set(0.85, 1, 1.05);
+      shoe.position.set(-0.04, -0.03, 0);
+      foot.add(shoe);
+      const sole = new THREE.Mesh(new THREE.BoxGeometry(0.29, 0.025, 0.105), M.sole);
+      sole.position.set(-0.04, -0.075, 0);
+      foot.add(sole);
       this.legs.push({ side, hip, knee, foot, z: side * 0.21 });
     }
 
     this.torso = new THREE.Group();
     this.hips.add(this.torso);
-    const chest = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.52, 0.38), M.shirt);
+    const chest = cap(0.16, 0.3, M.shirt);
+    chest.scale.set(0.72, 1, 1.18);
     chest.position.y = 0.3;
     this.torso.add(chest);
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.12, 8), M.skin);
+    neck.position.y = 0.6;
+    this.torso.add(neck);
     this.head = new THREE.Group();
-    this.head.position.y = 0.7;
+    this.head.position.y = 0.72;
     this.torso.add(this.head);
-    this.head.add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), M.skin));
-    const capTop = new THREE.Mesh(new THREE.SphereGeometry(0.125, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), M.cap);
-    capTop.position.y = 0.02;
-    this.head.add(capTop);
-    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.015, 0.2), M.cap);
-    brim.position.set(-0.15, 0.03, 0);
-    this.head.add(brim);
+    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.105, 16, 12), M.skin);
+    skull.scale.set(1, 1.15, 0.92);
+    this.head.add(skull);
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 6), M.skin);
+    nose.position.set(-0.105, -0.01, 0);
+    this.head.add(nose);
+    for (const s of [1, -1]) {
+      const ear = new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), M.skin);
+      ear.scale.set(0.6, 1, 0.5);
+      ear.position.set(0.0, 0, s * 0.1);
+      this.head.add(ear);
+    }
+    // short hair, cap and beanie (shown depending on the look)
+    this.hair = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), M.hair);
+    this.hair.scale.set(1.02, 1.12, 0.95);
+    this.hair.position.y = 0.012;
+    this.head.add(this.hair);
+    this.capGroup = new THREE.Group();
+    const capTop = new THREE.Mesh(new THREE.SphereGeometry(0.115, 14, 6, 0, Math.PI * 2, 0, Math.PI / 2), M.cap);
+    capTop.position.y = 0.03;
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.012, 0.18), M.cap);
+    brim.position.set(-0.15, 0.04, 0);
+    this.capGroup.add(capTop, brim);
+    this.head.add(this.capGroup);
+    this.beanie = new THREE.Mesh(new THREE.SphereGeometry(0.118, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), M.cap);
+    this.beanie.scale.set(1, 1.25, 1);
+    this.beanie.position.y = 0.01;
+    this.head.add(this.beanie);
 
     this.arms = [];
+    this.armMeshes = [];
     for (const side of [1, -1]) {
       const shoulder = new THREE.Group();
-      shoulder.position.set(0, 0.52, side * 0.23);
+      shoulder.position.set(0, 0.5, side * 0.2);
       this.torso.add(shoulder);
-      const upper = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.3, 0.09), M.shirt);
-      upper.position.y = -0.15;
+      const upper = cap(0.048, 0.22, M.skin);
+      upper.position.y = -0.14;
       shoulder.add(upper);
+      const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.058, 0.13, 10), M.shirt);
+      sleeve.position.y = -0.05;
+      shoulder.add(sleeve);
       const elbow = new THREE.Group();
-      elbow.position.y = -0.3;
+      elbow.position.y = -0.29;
       shoulder.add(elbow);
-      const fore = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.28, 0.08), M.skin);
-      fore.position.y = -0.14;
+      const fore = cap(0.042, 0.2, M.skin);
+      fore.position.y = -0.13;
       elbow.add(fore);
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.048, 8, 6), M.skin);
+      hand.scale.set(0.8, 1.2, 0.6);
+      hand.position.y = -0.29;
+      elbow.add(hand);
       this.arms.push({ side, shoulder, elbow });
+      this.armMeshes.push({ upper, sleeve, fore });
     }
     this.body.traverse(o => { if (o.isMesh) o.castShadow = true; });
 
@@ -193,8 +244,17 @@ export class Skater {
 
   applyLook(look) {
     const L = Object.assign({}, DEFAULT_LOOK, look);
-    for (const k of ['shirt', 'pants', 'skin', 'shoes', 'cap', 'deck']) this.mats[k].color.set(L[k]);
+    for (const k of ['shirt', 'pants', 'skin', 'shoes', 'cap', 'deck', 'hair']) this.mats[k].color.set(L[k]);
     this.goofy = L.stance === 'goofy';
+    // tank top = bare arms, tee = short sleeves, hoodie = long sleeves
+    for (const a of this.armMeshes) {
+      a.sleeve.visible = L.top !== 'tank';
+      a.upper.material = L.top === 'tank' ? this.mats.skin : this.mats.shirt;
+      a.fore.material = L.top === 'hoodie' ? this.mats.shirt : this.mats.skin;
+    }
+    this.capGroup.visible = L.hat === 'cap';
+    this.beanie.visible = L.hat === 'beanie';
+    this.hair.visible = L.hat !== 'beanie';
     this.body.scale.x = this.goofy ? -1 : 1;
   }
 

@@ -17,6 +17,13 @@ An **unofficial, fan-made skateboarding game inspired by Skate 3**, built to run
 - **Session markers**: set your spot and jump back to it
 - Named **gaps**: 5 Stair, Funbox Gap, Halfpipe Transfer, Hill Kicker Gap, Mega Ramp Gap
 
+**The look (Port Carverton style)**
+- Sunny campus plaza: light concrete slabs with red brick paver bands, grass beds, palm trees, cypress rows and purple flowering bushes
+- Cream stucco buildings with arched windows and terracotta roofs, green hills and clouds on the horizon
+- Skate 3 style HUD: compass, "Coach Says" tips, frosted challenge box, jump distance meter and glowing blue guide lines in Death Race
+- A more natural skater model. The default is a white tank top and black baggy pants, and Create-a-Skater adds tops, hats and hair
+- Pedestrians walking around the plaza
+
 **The park**
 - Plaza with ledges, rails, a kinked rail, a funbox, kickers, benches, picnic tables and planters
 - A 5-stair with handrail and hubba, a mini halfpipe, a bowl, a big quarter pipe, a drop-in hill and a **Mega Ramp**
@@ -120,6 +127,7 @@ js/modes.js           Own the Spot, S.K.A.T.E., Hall of Meat, Death Race
 js/replay.js          replay editor + photo mode
 js/npc.js             local skaters (AI)
 js/fx.js              grind sparks
+js/env.js             Port Carverton scenery: plaza, palms, buildings, hills, sky
 js/audio.js           generated sound effects + radio
 js/storage.js         saved settings
 vendor/three.module.js  three.js r160 (MIT license)

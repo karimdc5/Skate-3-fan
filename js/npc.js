@@ -8,10 +8,17 @@ const noop = new Proxy({}, { get: () => () => {} });
 const ROUTE = [[-60, -45], [72, -45], [72, 62], [-62, 62]];
 const TRICKS = ['ollie', 'ollie', 'kickflip', 'heelflip', 'popShove', 'flip360', 'varialKick'];
 const LOOKS = [
-  { shirt: '#2a9d8f', pants: '#264653', cap: '#e9c46a', deck: '#e76f51', skin: '#8d5524' },
-  { shirt: '#f1faee', pants: '#1d3557', cap: '#e63946', deck: '#457b9d', skin: '#f1c27d' },
-  { shirt: '#6a4c93', pants: '#222222', cap: '#ffca3a', deck: '#8ac926', skin: '#c68642', stance: 'goofy' },
+  { shirt: '#2f6d3a', pants: '#3b3b3b', cap: '#e9c46a', deck: '#e76f51', skin: '#8d5524', top: 'tee', hat: 'none' },
+  { shirt: '#f1faee', pants: '#2b3d5c', cap: '#e63946', deck: '#457b9d', skin: '#f1c27d', top: 'tee', hat: 'cap' },
+  { shirt: '#5b5f66', pants: '#222222', cap: '#2c2c2c', deck: '#8ac926', skin: '#c68642', stance: 'goofy', top: 'hoodie', hat: 'beanie' },
 ];
+const PED_LOOKS = [
+  { shirt: '#c94f4f', pants: '#2d3e50', skin: '#e0ac69', top: 'tee', hat: 'none', hair: '#3b2414' },
+  { shirt: '#3d7ab8', pants: '#c8b48a', skin: '#8d5524', top: 'tee', hat: 'cap', cap: '#ffffff' },
+  { shirt: '#e8d36a', pants: '#384048', skin: '#f1c27d', top: 'hoodie', hat: 'none', hair: '#d9b26a' },
+  { shirt: '#ffffff', pants: '#6b6b6b', skin: '#c68642', top: 'tank', hat: 'beanie', cap: '#a33' },
+];
+const PED_ROUTE = [[-70, -70], [70, -70], [70, 70], [-70, 70]];
 
 export class Npcs {
   constructor(scene, world, count = 3) {
@@ -29,15 +36,48 @@ export class Npcs {
         input: { move: { x: 0, y: 0 }, flick: { x: 0, y: 0 }, push: false, brake: false, grabL: 0, grabR: 0, events: new Set(), trick: null, manualHold: null, source: 'npc', recognizer: {} },
       });
     }
+
+    // pedestrians strolling around the plaza (Skate 3 is full of them)
+    this.peds = [];
+    for (let i = 0; i < 4; i++) {
+      const sk = new Skater(scene, world, noop, noop, { npc: true });
+      sk.applyLook(PED_LOOKS[i]);
+      const wp = i % PED_ROUTE.length;
+      const [x, z] = PED_ROUTE[wp];
+      sk.spawn(new THREE.Vector3(x + (i * 7) % 20, 0, z), 0);
+      sk.toggleWalk();
+      this.peds.push({ sk, wp: (wp + 1) % PED_ROUTE.length, speed: 0.55 + Math.random() * 0.3,
+        input: { move: { x: 0, y: 0 }, push: false, grabL: 0, grabR: 0, events: new Set(), trick: null, camYaw: 0, source: 'npc' } });
+    }
   }
 
   setEnabled(on) {
     this.enabled = on;
-    for (const n of this.list) n.sk.root.visible = on;
+    for (const n of [...this.list, ...this.peds]) n.sk.root.visible = on;
   }
 
   update(dt, player) {
     if (!this.enabled) return;
+    for (const n of this.peds) {
+      const sk = n.sk;
+      if (sk.mode !== 'walk' && sk.mode !== 'bail') sk.toggleWalk();
+      const [tx, tz] = PED_ROUTE[n.wp];
+      let dx = tx - sk.pos.x, dz = tz - sk.pos.z;
+      const d = Math.hypot(dx, dz);
+      if (d < 2) n.wp = (n.wp + 1) % PED_ROUTE.length;
+      dx /= d || 1; dz /= d || 1;
+      // camYaw 0: stick up = +z, stick right = -x
+      n.input.move.x = -dx * n.speed;
+      n.input.move.y = -dz * n.speed;
+      sk.update(dt, n.input);
+      if (player.mode !== 'bail' && player.mode !== 'walk' && sk.mode === 'walk') {
+        const pd = Math.hypot(player.pos.x - sk.pos.x, player.pos.z - sk.pos.z);
+        if (pd < 0.6 && Math.abs(player.pos.y - sk.pos.y) < 1.2 && player.speed > 3) {
+          player.bail('Ran into a pedestrian', player.speed + 2);
+          sk.bail('', player.speed);
+        }
+      }
+    }
     for (const n of this.list) {
       const sk = n.sk, inp = n.input;
       inp.trick = null;

@@ -1,11 +1,11 @@
 // Network-first service worker: always tries to get the latest version and
 // falls back to the cache when offline.
-const CACHE = 'skate-fan-v2';
+const CACHE = 'skate-fan-v3';
 const FILES = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
   'js/main.js', 'js/world.js', 'js/skater.js', 'js/input.js', 'js/tricks.js',
   'js/gamepad.js', 'js/controllers.js', 'js/audio.js', 'js/score.js', 'js/storage.js',
-  'js/fx.js', 'js/npc.js', 'js/replay.js', 'js/modes.js',
+  'js/fx.js', 'js/npc.js', 'js/replay.js', 'js/modes.js', 'js/env.js',
   'vendor/three.module.js', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 

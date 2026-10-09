@@ -36,6 +36,11 @@ export class Modes {
     this.rings = [];
   }
 
+  raceTarget() {
+    const a = this.active;
+    return a && a.mode.id === 'race' && a.cp < RACE.length ? RACE[a.cp] : null;
+  }
+
   medal(mode, value) {
     if (!mode.tiers) return -1;
     let m = -1;
@@ -184,7 +189,7 @@ export class Modes {
           this.rings[a.cp].material.color.set(0xffcc00);
         }
       }
-      for (const r of this.rings) r.rotation.y += dt;
+      for (let i = 0; i < RACE.length && i < this.rings.length; i++) this.rings[i].rotation.y += dt;
     } else if (id === 'skate') {
       if (a.wait > 0) {
         a.wait -= dt;
@@ -240,6 +245,17 @@ export class Modes {
       this.scene.add(ring);
       this.rings.push(ring);
     });
+    // glowing blue guide line along the route, like Skate 3's challenge lines
+    const pts = [this.world.spawns.hill.pos, ...RACE.map(([x, z]) => new THREE.Vector3(x, 0, z))].map(p => new THREE.Vector3(p.x, 0, p.z));
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const samples = curve.getSpacedPoints(300).map(p => new THREE.Vector3(p.x, this.world.heightAt(p.x, p.z) + 0.12, p.z));
+    const path = new THREE.CatmullRomCurve3(samples);
+    for (const [r, o] of [[0.06, 0.95], [0.22, 0.25]]) {
+      const tube = new THREE.Mesh(new THREE.TubeGeometry(path, 600, r, 6, false),
+        new THREE.MeshBasicMaterial({ color: 0x6cc4ff, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false }));
+      this.scene.add(tube);
+      this.rings.push(tube);
+    }
   }
 
   clearRings() {

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { World, buildSky } from './world.js';
+import { World } from './world.js';
+import { buildSkyDome } from './env.js';
 import { Skater, DEFAULT_LOOK } from './skater.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
@@ -19,17 +20,17 @@ const canvas = $('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.0;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xe9d8bb, 70, 230);
-buildSky(scene);
+scene.fog = new THREE.Fog(0xd8e6f0, 90, 420);
+buildSkyDome(scene);
 
-const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 600);
+const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 1200);
 
-const hemi = new THREE.HemisphereLight(0xcfe4ff, 0x6b5a45, 0.9);
+const hemi = new THREE.HemisphereLight(0xd4e6ff, 0x8b7d5c, 1.0);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff1d6, 2.2);
+const sun = new THREE.DirectionalLight(0xfff3df, 2.3);
 sun.shadow.mapSize.set(1024, 1024);
 const sc = sun.shadow.camera;
 sc.left = -22; sc.right = 22; sc.top = 22; sc.bottom = -22; sc.near = 1; sc.far = 120;
@@ -230,10 +231,12 @@ for (const b of document.querySelectorAll('[data-drop]')) {
 $('dClear').addEventListener('click', () => { world.clearDropped(); score.toast('Dropped objects removed'); play(); });
 
 // create-a-skater
-const lookInputs = { cShirt: 'shirt', cPants: 'pants', cSkin: 'skin', cShoes: 'shoes', cCap: 'cap', cDeck: 'deck' };
+const lookInputs = { cShirt: 'shirt', cPants: 'pants', cSkin: 'skin', cShoes: 'shoes', cCap: 'cap', cDeck: 'deck', cHair: 'hair' };
 function syncLookUI() {
   for (const [id, key] of Object.entries(lookInputs)) $(id).value = look[key];
   $('cStance').value = look.stance;
+  $('cTop').value = look.top;
+  $('cHat').value = look.hat;
 }
 function lookChanged() {
   skater.applyLook(look);
@@ -243,10 +246,13 @@ for (const [id, key] of Object.entries(lookInputs)) {
   $(id).addEventListener('input', e => { look[key] = e.target.value; lookChanged(); });
 }
 $('cStance').addEventListener('change', e => { look.stance = e.target.value; lookChanged(); });
+$('cTop').addEventListener('change', e => { look.top = e.target.value; lookChanged(); });
+$('cHat').addEventListener('change', e => { look.hat = e.target.value; lookChanged(); });
 $('cRandom').addEventListener('click', () => {
   const rc = () => '#' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
   const skins = ['#f1c27d', '#e0ac69', '#c68642', '#8d5524', '#ffdbac'];
-  Object.assign(look, { shirt: rc(), pants: rc(), shoes: rc(), cap: rc(), deck: rc(), skin: skins[Math.floor(Math.random() * skins.length)] });
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  Object.assign(look, { shirt: rc(), pants: rc(), shoes: rc(), cap: rc(), deck: rc(), skin: pick(skins), hair: pick(['#141010', '#3b2414', '#7a5230', '#d9b26a']), top: pick(['tank', 'tee', 'hoodie']), hat: pick(['none', 'cap', 'beanie']) });
   syncLookUI();
   lookChanged();
 });
@@ -310,9 +316,9 @@ let camInit = false;
 function updateCamera(dt) {
   const far = settings.camera === 'far';
   const walk = skater.mode === 'walk';
-  const dist = far ? 6.2 : walk ? 3.2 : 3.5;
-  const height = far ? 2.6 : walk ? 1.6 : 1.15;
-  const look = far ? 1.0 : walk ? 1.2 : 0.75;
+  const dist = far ? 6.2 : walk ? 3.2 : 3.3;
+  const height = far ? 2.6 : walk ? 1.6 : 1.45;
+  const look = far ? 1.0 : walk ? 1.2 : 0.95;
 
   const p = skater.pos;
   if (!camInit) {
@@ -365,8 +371,72 @@ function updateCamera(dt) {
     camera.updateProjectionMatrix();
   }
 
-  sun.position.set(p.x + 18, p.y + 30, p.z + 10);
+  sun.position.set(p.x + 22, p.y + 40, p.z + 14);
   sun.target.position.copy(p);
+}
+
+// ---------- Skate 3 style HUD: compass, Coach tips, distance meter ----------
+const needle = $('compassNeedle');
+const compassLabel = $('compassLabel');
+const coachBox = $('coachBox');
+const coachText = $('coachText');
+const distMeter = $('distMeter');
+const TIPS = [
+  'Pull back on the right stick, then flick it up to Ollie.',
+  'Flick up-left after pulling back for a Kickflip.',
+  'Roll the right stick around to the top for a 360 Flip.',
+  'Land your board straight, forwards or fakie, or you will bail.',
+  'Hold a trigger in the air to grab. Let go before you land!',
+  'Ollie onto a rail and you will lock into a grind.',
+  'Hit the Mega Ramp from the top for huge air. Pause → Mega Ramp.',
+  'Set a session marker with D-pad up and go back to it with D-pad down.',
+  'Tap Revert (B / ○) as you land in a transition to spin back around.',
+  'Want to see that line again? Open the Replay Editor.',
+  'Get off your board with Y / △ to walk around the plaza.',
+  'Drop your own kickers and rails with the Object Dropper.',
+  'Try S.K.A.T.E. against me in Game Modes.',
+];
+let tipTimer = 6, tipShown = 0, tipIndex = 0;
+let distShow = 0, wasAir = false;
+
+function coachSay(text, secs = 6) {
+  coachText.textContent = text;
+  coachBox.classList.add('show');
+  tipShown = secs;
+}
+
+function updateHud(dt) {
+  // compass points to the next race checkpoint, your marker, or north
+  let tx = null, tz = null, label = 'N';
+  const race = modes.active && modes.active.mode.id === 'race' && modes.raceTarget && modes.raceTarget();
+  if (race) { [tx, tz] = race; label = '🏁'; }
+  else if (skater.marker) { tx = skater.marker.pos.x; tz = skater.marker.pos.z; label = '📍'; }
+  const yaw = tx == null ? 0 : Math.atan2(tx - skater.pos.x, tz - skater.pos.z);
+  needle.style.transform = `rotate(${(-(yaw - camYaw)) * 180 / Math.PI}deg)`;
+  if (compassLabel.textContent !== label) compassLabel.textContent = label;
+
+  // Coach tips every so often
+  if (tipShown > 0) {
+    tipShown -= dt;
+    if (tipShown <= 0) coachBox.classList.remove('show');
+  } else if ((tipTimer -= dt) <= 0) {
+    coachSay(TIPS[tipIndex++ % TIPS.length]);
+    tipTimer = 28;
+  }
+
+  // jump distance meter
+  const air = skater.mode === 'air';
+  if (air) {
+    const d = Math.hypot(skater.pos.x - skater.takeoffPos.x, skater.pos.z - skater.takeoffPos.z);
+    if (d > 1.5) { distMeter.textContent = `${d.toFixed(1)} m`; distMeter.classList.add('show'); }
+  } else if (wasAir) {
+    distShow = skater.mode === 'ground' ? 1.8 : 0;
+  }
+  wasAir = air;
+  if (!air) {
+    distShow -= dt;
+    if (distShow <= 0) distMeter.classList.remove('show');
+  }
 }
 
 // ---------- loop ----------
@@ -414,6 +484,7 @@ function frame(now) {
       modes.update(dt);
       replay.record(dt);
     }
+    updateHud(dt);
     fx.update(dt);
     updateCamera(dt);
   } else if (state === 'replay') {

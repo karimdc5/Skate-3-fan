@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildGround, buildScenery } from './env.js';
 
 // The park is a height field built from "profile" primitives: a 2D height
 // profile h(u) extruded across a width. Quarter pipes, kickers, ledges,
@@ -171,11 +172,12 @@ export class World {
     this.spawns = {};
     this.gaps = [];
     this.dropped = [];
+    this.planterSpots = [];
     this.group = new THREE.Group();
     this.target = this.group;
     scene.add(this.group);
 
-    this.concrete = new THREE.MeshStandardMaterial({ map: makeConcreteTexture('#b5b1a8'), roughness: 0.92 });
+    this.concrete = new THREE.MeshStandardMaterial({ map: makeConcreteTexture('#cfcac0'), roughness: 0.92 });
     this.metal = new THREE.MeshStandardMaterial({ color: 0xc9ced6, metalness: 0.85, roughness: 0.3 });
 
     this.buildGround();
@@ -276,33 +278,7 @@ export class World {
 
   // ---------- park ----------
   buildGround() {
-    const tex = makeConcreteTexture('#8e8c87');
-    tex.repeat.set(42, 42);
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(170, 170),
-      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 })
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    this.group.add(ground);
-
-    // city ground outside the park walls
-    const outer = new THREE.Mesh(
-      new THREE.PlaneGeometry(800, 800),
-      new THREE.MeshStandardMaterial({ color: 0x6f6c66, roughness: 1 })
-    );
-    outer.rotation.x = -Math.PI / 2;
-    outer.position.y = -0.03;
-    this.group.add(outer);
-
-    // painted plaza circle
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(6, 6.4, 48),
-      new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.55 })
-    );
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.set(0, 0.01, -22);
-    this.group.add(ring);
+    buildGround(this.group);
   }
 
   buildPark() {
@@ -360,18 +336,25 @@ export class World {
 
     // Planters (obstacles)
     for (const [x, z] of [[-24, -30], [24, -40], [-26, 30], [30, 40]]) {
-      this.box(x, z, 3, 3, 0.5, { grind: true, color: 0x7b766d });
-      this.tree(x, 0.5, z);
+      this.box(x, z, 3, 3, 0.5, { grind: true, color: 0x9c4f37 });
+      this.planterSpots.push([x, z]);
     }
 
     this.buildExtras();
 
-    // Perimeter walls
-    const L = 160, T = 1, H = 3.2;
-    this.box(0, 80, L, T, H, { color: 0x6f6b64 });
-    this.box(0, -80, L, T, H, { color: 0x6f6b64 });
-    this.box(80, 0, T, L, H, { color: 0x6f6b64 });
-    this.box(-80, 0, T, L, H, { color: 0x6f6b64 });
+    // Perimeter walls: stucco with a terracotta tile cap
+    const L = 160, T = 1, H = 3.2, wall = 0xe4d6bc;
+    this.box(0, 80, L, T, H, { color: wall });
+    this.box(0, -80, L, T, H, { color: wall });
+    this.box(80, 0, T, L, H, { color: wall });
+    this.box(-80, 0, T, L, H, { color: wall });
+    const capMat = new THREE.MeshStandardMaterial({ color: 0xb4532e, roughness: 0.8 });
+    for (const [x, z, w, d] of [[0, 80, L + 1.6, 1.6], [0, -80, L + 1.6, 1.6], [80, 0, 1.6, L], [-80, 0, 1.6, L]]) {
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(w, 0.18, d), capMat);
+      cap.position.set(x, H + 0.09, z);
+      cap.castShadow = true;
+      this.group.add(cap);
+    }
   }
 
   tree(x, y, z) {
@@ -384,54 +367,7 @@ export class World {
   }
 
   buildDecor() {
-    // Graffiti panels on the perimeter walls
-    const tags = [['SKATE FAN', '#2b2d42', '#ffcc00'], ['SESSION', '#1d3557', '#f1faee'], ['FLICK IT', '#3a0ca3', '#4cc9f0'], ['BAIL', '#6a040f', '#ffba08']];
-    for (let i = 0; i < 8; i++) {
-      const [t, bg, fg] = tags[i % tags.length];
-      const mat = new THREE.MeshStandardMaterial({ map: makeGraffitiTexture(t, bg, fg), roughness: 0.9 });
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(12, 3), mat);
-      const side = i % 4;
-      const off = (i < 4 ? -30 : 30);
-      if (side === 0) { m.position.set(off, 1.6, 79.45); m.rotation.y = Math.PI; }
-      if (side === 1) { m.position.set(off, 1.6, -79.45); }
-      if (side === 2) { m.position.set(79.45, 1.6, off); m.rotation.y = -Math.PI / 2; }
-      if (side === 3) { m.position.set(-79.45, 1.6, off); m.rotation.y = Math.PI / 2; }
-      this.group.add(m);
-    }
-
-    // City skyline outside the walls
-    const winTexCanvas = document.createElement('canvas');
-    winTexCanvas.width = 64; winTexCanvas.height = 128;
-    const g = winTexCanvas.getContext('2d');
-    g.fillStyle = '#9aa1ad'; g.fillRect(0, 0, 64, 128);
-    for (let y = 4; y < 128; y += 12) for (let x = 4; x < 64; x += 12) {
-      g.fillStyle = Math.random() < 0.25 ? '#f6e7a1' : '#5d6675';
-      g.fillRect(x, y, 7, 8);
-    }
-    const winTex = new THREE.CanvasTexture(winTexCanvas);
-    winTex.wrapS = winTex.wrapT = THREE.RepeatWrapping;
-    winTex.colorSpace = THREE.SRGBColorSpace;
-    for (let i = 0; i < 40; i++) {
-      const a = i / 40 * Math.PI * 2;
-      const r = 125 + Math.random() * 40;
-      const w = 10 + Math.random() * 14, d = 10 + Math.random() * 14, hh = 8 + Math.random() * 26;
-      const t = winTex.clone();
-      t.needsUpdate = true;
-      t.repeat.set(w / 8, hh / 16);
-      const b = new THREE.Mesh(new THREE.BoxGeometry(w, hh, d), new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 }));
-      b.position.set(Math.cos(a) * r, hh / 2, Math.sin(a) * r);
-      b.rotation.y = -a;
-      this.group.add(b);
-    }
-
-    // Light poles
-    for (const [x, z] of [[-40, -40], [40, -40], [-56, 40], [40, 40], [0, -75], [0, 64]]) {
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 9, 6), this.metal);
-      pole.position.set(x, 4.5, z);
-      const lamp = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.3, 0.6), new THREE.MeshStandardMaterial({ color: 0xffffee, emissive: 0xfff3c0, emissiveIntensity: 0.6 }));
-      lamp.position.set(x, 9, z);
-      this.group.add(pole, lamp);
-    }
+    buildScenery(this);
   }
 
   buildExtras() {

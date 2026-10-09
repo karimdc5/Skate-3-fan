@@ -26,7 +26,6 @@
         <div id="score">0</div>
         <div id="best" class="best">BEST 0</div>
       </div>
-      <div id="line" class="line"></div>
       <div class="hud-buttons">
         <button class="icon-btn" id="btnMarker" title="Set session marker" aria-label="Set session marker">📍</button>
         <button class="icon-btn" id="btnRespawn" title="Go to session marker" aria-label="Go to session marker">⟲</button>
@@ -36,7 +35,18 @@
         <button class="icon-btn" id="btnPause" title="Pause" aria-label="Pause">❚❚</button>
       </div>
     </div>
+    <div id="compass" class="compass" aria-hidden="true">
+      <div class="compass-ring"></div>
+      <div id="compassNeedle" class="compass-needle"></div>
+      <div id="compassLabel" class="compass-label">N</div>
+    </div>
+    <div id="coachBox" class="coach-box">
+      <div class="coach-title">Coach Says</div>
+      <div id="coachText" class="coach-text"></div>
+    </div>
     <div id="modeHud" class="mode-hud hidden"></div>
+    <div id="distMeter" class="dist-meter"></div>
+    <div id="line" class="line"></div>
     <div id="trickPop" class="trick-pop"></div>
     <div id="toast" class="toast"></div>
     <div id="speedo" class="speedo">0 km/h</div>
@@ -147,11 +157,16 @@
       <h2>🧢 Create-a-Skater</h2>
       <label class="opt"><span>Stance</span>
         <select id="cStance"><option value="regular">Regular (left foot forward)</option><option value="goofy">Goofy (right foot forward)</option></select></label>
+      <label class="opt"><span>Top</span>
+        <select id="cTop"><option value="tank">Tank top</option><option value="tee">T-shirt</option><option value="hoodie">Hoodie</option></select></label>
+      <label class="opt"><span>Hat</span>
+        <select id="cHat"><option value="none">None</option><option value="cap">Cap</option><option value="beanie">Beanie</option></select></label>
       <label class="opt"><span>Shirt</span><input type="color" id="cShirt"></label>
       <label class="opt"><span>Pants</span><input type="color" id="cPants"></label>
       <label class="opt"><span>Skin</span><input type="color" id="cSkin"></label>
       <label class="opt"><span>Shoes</span><input type="color" id="cShoes"></label>
-      <label class="opt"><span>Cap</span><input type="color" id="cCap"></label>
+      <label class="opt"><span>Hat colour</span><input type="color" id="cCap"></label>
+      <label class="opt"><span>Hair</span><input type="color" id="cHair"></label>
       <label class="opt"><span>Deck</span><input type="color" id="cDeck"></label>
       <div class="row">
         <button id="cRandom">🎲 Random</button>

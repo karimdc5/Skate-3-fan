@@ -304,3 +304,71 @@ input[type=color] { width: 54px; height: 32px; border: 1px solid var(--line); bo
   background: var(--accent); color: #000; padding: 4px 12px; transform: rotate(-3deg);
 }
 .mag-hint { position: absolute; right: 16px; bottom: 16px; font-size: 11px; color: rgba(255,255,255,.7); }
+
+/* ===== v3: Skate 3 style HUD ===== */
+#hud, .coach-box, .mode-hud, .dist-meter, .line {
+  font-family: "Avenir Next Condensed", "Helvetica Neue", "Arial Narrow", Roboto, sans-serif;
+  font-stretch: condensed;
+}
+.score-box { opacity: 0.9; }
+#score { font-size: 22px; font-style: italic; }
+.score-label { color: #9fd0ff; }
+
+/* trick line sits low and centred like Skate 3 */
+.line {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(118px + var(--safe-b)); width: min(60%, 520px);
+  font-size: 17px; font-style: italic; font-weight: 800; letter-spacing: 0.3px;
+  color: #fff; text-shadow: 0 0 6px rgba(20,60,120,.9), 0 2px 3px #000; padding: 0;
+}
+.line .pts { color: #8fd3ff; font-size: 24px; }
+.hud-top { justify-content: flex-start; }
+.hud-buttons { margin-left: auto; }
+
+.compass {
+  position: absolute; right: calc(16px + var(--safe-r)); top: calc(58px + var(--safe-t));
+  width: 62px; height: 62px; pointer-events: none;
+}
+.compass-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #6f8fb8, #2c4569 60%, #1b2c45);
+  border: 2px solid rgba(220,235,255,.55);
+  box-shadow: 0 2px 10px rgba(0,0,0,.45), inset 0 0 8px rgba(0,0,0,.5);
+}
+.compass-needle {
+  position: absolute; left: 50%; top: 50%; width: 6px; height: 50px; margin: -25px 0 0 -3px;
+  background: linear-gradient(#ffffff 0 50%, #7aa6d8 50% 100%); border-radius: 3px;
+  box-shadow: 0 0 4px rgba(255,255,255,.6);
+}
+.compass-label {
+  position: absolute; left: 0; right: 0; top: -15px; text-align: center; font-size: 11px; font-weight: 800; color: #dbe9ff;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* "Coach Says" and challenge boxes: frosted white panels with blue type */
+.coach-box, .mode-hud {
+  background: linear-gradient(180deg, rgba(255,255,255,.88), rgba(220,232,245,.78));
+  color: #1d3d66; border: 1px solid rgba(255,255,255,.9); border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35);
+}
+.coach-box {
+  position: absolute; right: calc(16px + var(--safe-r)); top: calc(132px + var(--safe-t));
+  width: 210px; padding: 6px 10px; font-size: 13px; font-style: italic; font-weight: 600;
+  opacity: 0; transform: translateX(20px); transition: opacity .4s, transform .4s;
+}
+.coach-box.show { opacity: 1; transform: none; }
+.coach-title { font-weight: 900; font-size: 13px; color: #2c6fb5; text-transform: none; margin-bottom: 2px; }
+.mode-hud {
+  left: auto; transform: none; top: auto;
+  right: calc(16px + var(--safe-r)); bottom: calc(126px + var(--safe-b));
+  max-width: 300px; text-align: right; font-style: italic; font-size: 13px; padding: 6px 12px;
+}
+.mode-hud .big-num { color: #2c6fb5; font-size: 22px; }
+.mode-hud .letters b { color: #c0392b; }
+.dist-meter {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(92px + var(--safe-b));
+  font-size: 20px; font-weight: 800; font-style: italic; color: #fff;
+  text-shadow: 0 0 5px rgba(0,0,0,.8), 0 2px 2px #000; opacity: 0; transition: opacity .3s;
+}
+.dist-meter.show { opacity: 1; }
+.speedo { top: calc(76px + var(--safe-t)); }
