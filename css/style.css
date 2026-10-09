@@ -250,3 +250,57 @@ body.lefty .flick-hint { right: auto; left: calc(150px + var(--safe-l)); }
 .map-row button { padding: 6px 12px; font-size: 13px; }
 .map-row.listening .glyph { color: var(--ok); animation: blink 0.8s infinite; }
 @keyframes blink { 50% { opacity: .3; } }
+
+/* ===== v2: modes, replay, customize, dropper ===== */
+.trevert { width: 60px; height: 60px; left: calc(96px + var(--safe-l)); bottom: calc(176px + var(--safe-b)); font-size: 11px; }
+body.lefty .trevert { left: auto; right: calc(96px + var(--safe-r)); }
+.pop-sub { font-size: 14px; font-style: normal; font-weight: 600; max-width: 560px; margin: 4px auto 0; }
+
+.mode-hud {
+  position: absolute; left: 50%; transform: translateX(-50%); top: calc(84px + var(--safe-t));
+  background: rgba(0,0,0,.55); border: 1px solid var(--line); border-radius: 14px;
+  padding: 6px 14px; font-weight: 800; text-align: center; font-size: 15px; max-width: 80%;
+}
+.mode-hud .big-num { font-size: 26px; color: var(--accent); display: block; }
+.mode-hud .letters { letter-spacing: 6px; font-size: 18px; }
+.mode-hud .letters b { color: var(--danger); }
+.mode-list { display: flex; flex-direction: column; gap: 8px; }
+.mode-card { text-align: left; display: flex; flex-direction: column; gap: 2px; }
+.mode-card b { font-size: 16px; }
+.mode-card span { font-size: 13px; color: var(--muted); }
+.medal { font-size: 54px; text-align: center; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.overlay.side { justify-content: flex-start; background: transparent; }
+.panel.narrow { width: min(330px, 100%); }
+input[type=color] { width: 54px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: none; padding: 0; }
+
+#replayUI { position: fixed; inset: 0; z-index: 15; pointer-events: none; }
+.replay-bar {
+  position: absolute; left: calc(12px + var(--safe-l)); right: calc(12px + var(--safe-r)); bottom: calc(10px + var(--safe-b));
+  display: flex; gap: 8px; align-items: center; pointer-events: auto;
+  background: rgba(10,12,16,.82); border: 1px solid var(--line); border-radius: 16px; padding: 8px 10px;
+}
+.replay-bar input[type=range] { flex: 1; width: auto; }
+.replay-bar button { padding: 8px 12px; }
+.replay-tag {
+  position: absolute; top: calc(12px + var(--safe-t)); left: calc(16px + var(--safe-l));
+  font-weight: 900; color: var(--danger); letter-spacing: 2px; text-shadow: 0 2px 6px #000;
+}
+.replay-tag::before { content: "● "; }
+.photo-frame {
+  position: fixed; inset: 0; z-index: 16; border: 10px solid #fff; pointer-events: auto;
+  box-shadow: inset 0 0 0 2px #000;
+}
+.mag-title {
+  position: absolute; top: 6px; left: 0; right: 0; text-align: center;
+  font-size: 64px; font-weight: 900; font-style: italic; letter-spacing: -2px; color: #fff;
+  text-shadow: 0 3px 0 #000, 0 0 20px rgba(0,0,0,.5);
+}
+.mag-title span { color: var(--accent); }
+.mag-issue { position: absolute; top: 80px; left: 0; right: 0; text-align: center; font-weight: 800; font-size: 12px; letter-spacing: 3px; text-shadow: 0 1px 3px #000; }
+.mag-cover {
+  position: absolute; left: 18px; bottom: 22px; font-weight: 900; font-size: 26px; font-style: italic;
+  background: var(--accent); color: #000; padding: 4px 12px; transform: rotate(-3deg);
+}
+.mag-hint { position: absolute; right: 16px; bottom: 16px; font-size: 11px; color: rgba(255,255,255,.7); }

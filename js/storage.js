@@ -31,6 +31,8 @@ export const settings = Object.assign({
   sound: true,
   camera: 'skate',
   quality: isTouch ? 'low' : 'high',
+  radio: 'off',
+  npcs: true,
 }, load('settings', {}));
 
 export function saveSettings() {

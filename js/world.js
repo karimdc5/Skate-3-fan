@@ -169,7 +169,10 @@ export class World {
     this.profiles = [];
     this.rails = [];
     this.spawns = {};
+    this.gaps = [];
+    this.dropped = [];
     this.group = new THREE.Group();
+    this.target = this.group;
     scene.add(this.group);
 
     this.concrete = new THREE.MeshStandardMaterial({ map: makeConcreteTexture('#b5b1a8'), roughness: 0.92 });
@@ -203,7 +206,7 @@ export class World {
   addProfile(opts) {
     const p = new Profile(opts);
     this.profiles.push(p);
-    this.group.add(p.buildMesh(this.concrete));
+    this.target.add(p.buildMesh(this.concrete));
     return p;
   }
 
@@ -217,7 +220,7 @@ export class World {
     mesh.position.copy(a).add(b).multiplyScalar(0.5);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), rail.dir);
     mesh.castShadow = true;
-    this.group.add(mesh);
+    this.target.add(mesh);
     if (kind === 'rail') {
       const posts = Math.max(2, Math.ceil(rail.len / 3) + 1);
       for (let i = 0; i < posts; i++) {
@@ -229,7 +232,7 @@ export class World {
         const post = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, hgt, 6), this.metal);
         post.position.set(p.x, gh + hgt / 2, p.z);
         post.castShadow = true;
-        this.group.add(post);
+        this.target.add(post);
       }
     }
     return rail;
@@ -283,6 +286,15 @@ export class World {
     ground.receiveShadow = true;
     this.group.add(ground);
 
+    // city ground outside the park walls
+    const outer = new THREE.Mesh(
+      new THREE.PlaneGeometry(800, 800),
+      new THREE.MeshStandardMaterial({ color: 0x6f6c66, roughness: 1 })
+    );
+    outer.rotation.x = -Math.PI / 2;
+    outer.position.y = -0.03;
+    this.group.add(outer);
+
     // painted plaza circle
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(6, 6.4, 48),
@@ -297,6 +309,8 @@ export class World {
     // Spawn points: position + heading
     this.spawns.plaza = { pos: new THREE.Vector3(0, 0, -22), heading: 0 };
     this.spawns.half = { pos: new THREE.Vector3(-36, 0, 0), heading: 0 };
+    this.spawns.mega = { pos: new THREE.Vector3(-54, 11.6, -62), heading: Math.PI / 2 };
+    this.spawns.bowl = { pos: new THREE.Vector3(-40, 0, 40), heading: 0 };
     this.spawns.hill = { pos: new THREE.Vector3(55.7, 5.4, -24), heading: -Math.PI / 2 };
 
     // Main big quarter pipe at the end of the plaza
@@ -349,6 +363,8 @@ export class World {
       this.box(x, z, 3, 3, 0.5, { grind: true, color: 0x7b766d });
       this.tree(x, 0.5, z);
     }
+
+    this.buildExtras();
 
     // Perimeter walls
     const L = 160, T = 1, H = 3.2;
@@ -409,13 +425,141 @@ export class World {
     }
 
     // Light poles
-    for (const [x, z] of [[-40, -40], [40, -40], [-40, 40], [40, 40], [0, -60], [0, 64]]) {
+    for (const [x, z] of [[-40, -40], [40, -40], [-56, 40], [40, 40], [0, -75], [0, 64]]) {
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 9, 6), this.metal);
       pole.position.set(x, 4.5, z);
       const lamp = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.3, 0.6), new THREE.MeshStandardMaterial({ color: 0xffffee, emissive: 0xfff3c0, emissiveIntensity: 0.6 }));
       lamp.position.set(x, 9, z);
       this.group.add(pole, lamp);
     }
+  }
+
+  buildExtras() {
+    const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+    // ---- Mega ramp: roll-in, kicker, 13 m gap, landing, big quarter pipe ----
+    const rollPts = [];
+    for (let i = 0; i <= 24; i++) {
+      const t = i / 24;
+      rollPts.push([26 * t, 12 * t * t * (3 - 2 * t)]);
+    }
+    rollPts.push([32, 12]);
+    this.addProfile({ x: -30, z: -62, rot: 3, width: 10, points: rollPts, color: 0xd9cdb4 });
+    this.kicker(-24, -62, 1, { width: 6, length: 5, height: 3.2, color: 0xe3d6bb });
+    const landPts = [];
+    for (let i = 0; i <= 14; i++) {
+      const t = i / 14;
+      landPts.push([18 * t, 2.8 * Math.pow(t, 1.3)]);
+    }
+    this.addProfile({ x: 12, z: -62, rot: 3, width: 10, points: landPts, color: 0xd9cdb4 });
+    this.quarterPipe(32, -62, 1, { width: 10, radius: 7, height: 6, deck: 2, color: 0xd9cdb4 });
+    this.addGap('Mega Ramp Gap', [-25, -18, -67, -57], [-6, 14, -67, -57], 2500);
+
+    // ---- Bowl: four quarter pipes facing in, solid corners ----
+    const bx = -40, bz = 40, half = 4, R = 2.8, H = 2.4, deck = 1.5;
+    this.quarterPipe(bx, bz + half, 0, { width: 2 * half, radius: R, height: H, deck });
+    this.quarterPipe(bx, bz - half, 2, { width: 2 * half, radius: R, height: H, deck });
+    this.quarterPipe(bx + half, bz, 1, { width: 2 * half, radius: R, height: H, deck });
+    this.quarterPipe(bx - half, bz, 3, { width: 2 * half, radius: R, height: H, deck });
+    const dTop = Math.sqrt(R * R - (R - H) * (R - H)) + deck;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      this.box(bx + sx * (half + dTop / 2), bz + sz * (half + dTop / 2), dTop, dTop, H, { color: 0xc4bfb5 });
+    }
+
+    // ---- Kinked rail ----
+    this.addRail(V(-26, 0.8, -16), V(-26, 0.8, -12), 'rail');
+    this.addRail(V(-26, 0.8, -12), V(-26, 0.35, -8), 'rail');
+    this.addRail(V(-26, 0.35, -8), V(-26, 0.35, -4), 'rail');
+
+    // ---- Hubba ledge next to the stairs ----
+    const hubba = this.addProfile({ x: 42, z: 28.6, rot: 3, width: 0.6, points: [[11, 1.6], [13, 1.6], [15.4, 0.45]], color: 0x8c8a86 });
+    this.addRail(hubba.toWorld(11, 0, 1.6), hubba.toWorld(13, 0, 1.6), 'ledge');
+    this.addRail(hubba.toWorld(13, 0, 1.6), hubba.toWorld(15.4, 0, 0.45), 'ledge');
+    this.addGap('5 Stair', [29, 34, 20, 28], [17, 27.2, 19, 29], 600);
+
+    // ---- Benches and picnic tables ----
+    for (const [x, z, r] of [[-30, -22, 0], [30, -10, 1], [-4, 34, 1]]) this.bench(x, z, r);
+    for (const [x, z] of [[-20, 12], [22, 16]]) this.picnicTable(x, z);
+
+    // ---- Named gaps ----
+    this.addGap('Funbox Gap', [-3, 3, 11, 14.5], [-3, 3, 19.2, 26], 400);
+    this.addGap('Hill Kicker Gap', [22.5, 26.5, -26, -22], [-6, 14, -30, -18], 800);
+    this.addGap('Halfpipe Transfer', [-41, -31, 7, 10.5], [-41, -31, -10.5, -7], 1200);
+    this.addGap('Halfpipe Transfer', [-41, -31, -10.5, -7], [-41, -31, 7, 10.5], 1200);
+  }
+
+  bench(x, z, rot) {
+    const p = this.addProfile({ x, z, rot, width: 0.5, points: [[-1, 0.45], [1, 0.45]], color: 0x7a5534 });
+    for (const w of [-0.25, 0.25]) this.addRail(p.toWorld(-1, w, 0.45), p.toWorld(1, w, 0.45), 'ledge', { visible: false });
+    return p;
+  }
+
+  picnicTable(x, z) {
+    const wood = 0x8a6440;
+    this.box(x, z, 0.8, 2.2, 0.75, { color: wood, grind: true });
+    this.box(x - 0.75, z, 0.32, 2.2, 0.45, { color: wood, grind: true });
+    this.box(x + 0.75, z, 0.32, 2.2, 0.45, { color: wood, grind: true });
+  }
+
+  // rects are [minX, maxX, minZ, maxZ]
+  addGap(name, from, to, pts) {
+    this.gaps.push({ name, from, to, pts });
+  }
+
+  findGap(takeoff, landing) {
+    const inside = (r, p) => p.x >= r[0] && p.x <= r[1] && p.z >= r[2] && p.z <= r[3];
+    return this.gaps.find(g => inside(g.from, takeoff) && inside(g.to, landing)) || null;
+  }
+
+  // Rail that continues from one end of `rail` (kinked rails, hubbas)
+  connectedRail(rail, atEnd) {
+    const p = atEnd ? rail.b : rail.a;
+    for (const r of this.rails) {
+      if (r === rail) continue;
+      if (r.a.distanceTo(p) < 0.05) return { rail: r, t: 0 };
+      if (r.b.distanceTo(p) < 0.05) return { rail: r, t: 1 };
+    }
+    return null;
+  }
+
+  // ---------- Object dropper (Skate 3 style) ----------
+  drop(type, pos, heading) {
+    const g = new THREE.Group();
+    this.group.add(g);
+    this.target = g;
+    const startP = this.profiles.length, startR = this.rails.length;
+    const rot = heading / (Math.PI / 2);
+    const fx = Math.sin(heading), fz = Math.cos(heading);
+    const at = d => [pos.x + fx * d, pos.z + fz * d];
+    try {
+      if (type === 'kicker') { const [x, z] = at(4); this.kicker(x, z, rot, { width: 2.5, length: 2.6, height: 1.0 }); }
+      if (type === 'bigKicker') { const [x, z] = at(5); this.kicker(x, z, rot, { width: 3.5, length: 4, height: 2.0 }); }
+      if (type === 'quarter') { const [x, z] = at(6); this.quarterPipe(x, z, rot, { width: 6, radius: 3.6, height: 3, deck: 1.5 }); }
+      if (type === 'rail') {
+        const [x, z] = at(4);
+        this.addRail(new THREE.Vector3(x, 0.5, z), new THREE.Vector3(x + fx * 6, 0.5, z + fz * 6), 'rail');
+      }
+      if (type === 'ledge' || type === 'box') {
+        const [x, z] = at(4);
+        const len = 6, hgt = type === 'ledge' ? 0.5 : 0.3, wid = type === 'ledge' ? 0.8 : 2;
+        const p = this.addProfile({ x, z, rot, width: wid, points: [[0, hgt], [len, hgt]], color: 0x9f9a90 });
+        for (const w of [-wid / 2, wid / 2]) this.addRail(p.toWorld(0, w, hgt), p.toWorld(len, w, hgt), 'ledge');
+      }
+      if (type === 'bench') { const [x, z] = at(4); this.bench(x, z, rot + 1); }
+    } finally {
+      this.target = this.group;
+    }
+    this.dropped.push({ group: g, profiles: this.profiles.slice(startP), rails: this.rails.slice(startR) });
+  }
+
+  clearDropped() {
+    for (const d of this.dropped) {
+      this.group.remove(d.group);
+      d.group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+      this.profiles = this.profiles.filter(p => !d.profiles.includes(p));
+      this.rails = this.rails.filter(r => !d.rails.includes(r));
+    }
+    this.dropped = [];
   }
 
   // Finds the nearest grind segment to point p. Returns {rail, t, dist, point}.

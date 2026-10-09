@@ -25,6 +25,7 @@ export class Input {
     this.padConnected = false;
     this.padType = null;
     this.enabled = true;
+    this.camYaw = 0;
 
     this.recognizer = new FlickRecognizer();
     this.keys = new Set();
@@ -44,8 +45,8 @@ export class Input {
 
   // ---------- keyboard ----------
   bindKeyboard() {
-    const direct = { Space: 'ollie', KeyQ: 'kickflip', KeyE: 'heelflip', KeyR: 'popShove', KeyF: 'flip360', KeyX: 'laserFlip' };
-    const evts = { KeyT: 'respawn', KeyG: 'marker', KeyV: 'camera', Escape: 'pause', KeyP: 'pause' };
+    const direct = { Space: 'ollie', KeyQ: 'kickflip', KeyE: 'heelflip', KeyR: 'popShove', KeyF: 'flip360', KeyX: 'laserFlip', Digit1: 'varialKick', Digit2: 'hardflip', Digit3: 'doubleKick', Digit4: 'impossible', Digit5: 'shove360', Digit6: 'inwardHeel' };
+    const evts = { KeyT: 'respawn', KeyG: 'marker', KeyV: 'camera', Escape: 'pause', KeyP: 'pause', KeyH: 'revert', KeyO: 'offBoard', KeyB: 'bail', KeyN: 'dropper', KeyM: 'replay' };
     window.addEventListener('keydown', e => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
       this.source = 'keyboard';
@@ -132,6 +133,14 @@ export class Input {
       el.addEventListener('pointercancel', off);
       el.addEventListener('pointerleave', off);
     };
+    const tap = (id, name) => {
+      const el = document.getElementById(id);
+      el.addEventListener('pointerdown', e => { e.preventDefault(); this.source = 'touch'; this.pendingEvents.add(name); el.classList.add('held'); });
+      const off = () => el.classList.remove('held');
+      el.addEventListener('pointerup', off);
+      el.addEventListener('pointercancel', off);
+    };
+    tap('tRevert', 'revert');
     hold('tPush', 'push');
     hold('tGrab', 'grab');
     hold('tBrake', 'brake');
@@ -200,7 +209,7 @@ export class Input {
       if (b[4]) grabL = 1;
       if (b[5]) grabR = 1;
       const edge = (name) => b[map[name]] && !this.prevPadButtons[map[name]];
-      for (const name of ['respawn', 'marker', 'camera', 'pause', 'pads']) if (edge(name)) this.events.add(name);
+      for (const name of ['respawn', 'marker', 'camera', 'pause', 'pads', 'revert', 'offBoard', 'bail', 'dropper', 'replay']) if (map[name] >= 0 && edge(name)) this.events.add(name);
       this.prevPadButtons = b.slice();
     } else {
       this.prevPadButtons = [];

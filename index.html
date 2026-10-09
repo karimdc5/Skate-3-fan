@@ -28,12 +28,15 @@
       </div>
       <div id="line" class="line"></div>
       <div class="hud-buttons">
-        <button class="icon-btn" id="btnMarker" title="Set spawn marker" aria-label="Set spawn marker">📍</button>
-        <button class="icon-btn" id="btnRespawn" title="Go to marker" aria-label="Go to marker">⟲</button>
+        <button class="icon-btn" id="btnMarker" title="Set session marker" aria-label="Set session marker">📍</button>
+        <button class="icon-btn" id="btnRespawn" title="Go to session marker" aria-label="Go to session marker">⟲</button>
+        <button class="icon-btn" id="btnWalk" title="Get off / on board" aria-label="Get off or on board">🚶</button>
+        <button class="icon-btn" id="btnReplay" title="Replay editor" aria-label="Replay editor">🎬</button>
         <button class="icon-btn" id="btnPad" title="Controllers" aria-label="Controllers">🎮<span id="padDot" class="pad-dot"></span></button>
         <button class="icon-btn" id="btnPause" title="Pause" aria-label="Pause">❚❚</button>
       </div>
     </div>
+    <div id="modeHud" class="mode-hud hidden"></div>
     <div id="trickPop" class="trick-pop"></div>
     <div id="toast" class="toast"></div>
     <div id="speedo" class="speedo">0 km/h</div>
@@ -47,8 +50,28 @@
     <div id="stickR" class="stick flick"><div class="knob"></div></div>
     <div id="flickHint" class="flick-hint">SWIPE HERE<br><small>tap = ollie</small></div>
     <button id="tBrake" class="tbtn tbrake">BRAKE</button>
+    <button id="tRevert" class="tbtn trevert">REVERT</button>
     <button id="tGrab" class="tbtn tgrab">GRAB</button>
     <button id="tPush" class="tbtn tpush">PUSH</button>
+  </div>
+
+  <!-- ===== REPLAY EDITOR ===== -->
+  <div id="replayUI" class="hidden">
+    <div id="replayBar" class="replay-bar">
+      <button id="rPlay">❚❚</button>
+      <input type="range" id="rScrub" min="0" max="1000" value="1000">
+      <select id="rSpeed"><option value="1">1×</option><option value="0.5">½×</option><option value="0.25">¼×</option></select>
+      <select id="rCam"><option value="follow">Follow cam</option><option value="orbit">Orbit (drag)</option><option value="tripod">Tripod</option><option value="low">Fisheye low</option></select>
+      <button id="rPhoto">📷 Photo</button>
+      <button id="rExit" class="big">EXIT</button>
+    </div>
+    <div class="replay-tag">REPLAY <span id="rTime"></span></div>
+  </div>
+  <div id="photoFrame" class="photo-frame hidden">
+    <div class="mag-title">SKATE<span>FAN</span></div>
+    <div class="mag-issue">ISSUE #3 · SESSION EDITION</div>
+    <div class="mag-cover" id="magCover">COVER SHOT</div>
+    <div class="mag-hint">tap to exit photo mode</div>
   </div>
 
   <!-- ===== MAIN MENU ===== -->
@@ -56,10 +79,14 @@
     <div class="panel menu-panel">
       <div class="logo">SKATE<span>FAN</span></div>
       <div class="tag">An unofficial fan game inspired by Skate 3</div>
-      <button class="big" id="mPlay">PLAY</button>
+      <button class="big" id="mPlay">FREE SKATE</button>
+      <button id="mModes">🏆 Game Modes</button>
+      <button id="mCustom">🧢 Create-a-Skater</button>
       <button id="mControllers">🎮 Controllers (Xbox / PS5)</button>
-      <button id="mHow">How to play</button>
-      <button id="mSettings">Settings</button>
+      <div class="row">
+        <button id="mHow">How to play</button>
+        <button id="mSettings">Settings</button>
+      </div>
       <div class="small muted">Tip: in Safari tap Share → <b>Add to Home Screen</b> for full screen.</div>
     </div>
   </div>
@@ -69,16 +96,87 @@
     <div class="panel">
       <h2>Paused</h2>
       <button class="big" id="pResume">RESUME</button>
+      <h3>Go to spot</h3>
       <div class="row">
-        <button id="pSpawnPlaza">Plaza</button>
-        <button id="pSpawnHalf">Halfpipe</button>
-        <button id="pSpawnHill">Big Hill</button>
+        <button data-spawn="plaza">Plaza</button>
+        <button data-spawn="half">Halfpipe</button>
+        <button data-spawn="bowl">Bowl</button>
+        <button data-spawn="hill">Big Hill</button>
+        <button data-spawn="mega">Mega Ramp</button>
+      </div>
+      <div class="row">
+        <button id="pDropper">📦 Object Dropper</button>
+        <button id="pReplay">🎬 Replay Editor</button>
+      </div>
+      <div class="row">
+        <button id="pModes">🏆 Game Modes</button>
+        <button id="pCustom">🧢 Create-a-Skater</button>
       </div>
       <button id="pControllers">🎮 Controllers</button>
-      <button id="pHow">How to play</button>
-      <button id="pSettings">Settings</button>
+      <div class="row">
+        <button id="pHow">How to play</button>
+        <button id="pSettings">Settings</button>
+      </div>
+      <button id="pQuitMode" class="danger hidden">Quit game mode</button>
       <h3>Challenges <span id="chCount" class="muted"></span></h3>
       <ul id="challenges" class="challenges"></ul>
+    </div>
+  </div>
+
+  <!-- ===== GAME MODES ===== -->
+  <div id="modes" class="overlay hidden">
+    <div class="panel">
+      <h2>🏆 Game Modes</h2>
+      <div id="modeList" class="mode-list"></div>
+      <button class="big close">BACK</button>
+    </div>
+  </div>
+  <div id="modeResult" class="overlay hidden">
+    <div class="panel menu-panel">
+      <h2 id="mrTitle"></h2>
+      <div id="mrMedal" class="medal"></div>
+      <p id="mrText" class="muted"></p>
+      <button class="big" id="mrRetry">TRY AGAIN</button>
+      <button id="mrExit">FREE SKATE</button>
+    </div>
+  </div>
+
+  <!-- ===== CREATE-A-SKATER ===== -->
+  <div id="custom" class="overlay side hidden">
+    <div class="panel narrow">
+      <h2>🧢 Create-a-Skater</h2>
+      <label class="opt"><span>Stance</span>
+        <select id="cStance"><option value="regular">Regular (left foot forward)</option><option value="goofy">Goofy (right foot forward)</option></select></label>
+      <label class="opt"><span>Shirt</span><input type="color" id="cShirt"></label>
+      <label class="opt"><span>Pants</span><input type="color" id="cPants"></label>
+      <label class="opt"><span>Skin</span><input type="color" id="cSkin"></label>
+      <label class="opt"><span>Shoes</span><input type="color" id="cShoes"></label>
+      <label class="opt"><span>Cap</span><input type="color" id="cCap"></label>
+      <label class="opt"><span>Deck</span><input type="color" id="cDeck"></label>
+      <div class="row">
+        <button id="cRandom">🎲 Random</button>
+        <button id="cDefault">Default</button>
+      </div>
+      <button class="big close">DONE</button>
+    </div>
+  </div>
+
+  <!-- ===== OBJECT DROPPER ===== -->
+  <div id="dropper" class="overlay hidden">
+    <div class="panel">
+      <h2>📦 Object Dropper</h2>
+      <p class="muted small">Drops the object in front of you, facing the way you're riding.</p>
+      <div class="grid2">
+        <button data-drop="kicker">Kicker</button>
+        <button data-drop="bigKicker">Big Kicker</button>
+        <button data-drop="quarter">Quarter Pipe</button>
+        <button data-drop="rail">Flat Rail</button>
+        <button data-drop="ledge">Ledge</button>
+        <button data-drop="box">Manual Pad</button>
+        <button data-drop="bench">Bench</button>
+      </div>
+      <button id="dClear" class="danger">Remove all dropped objects</button>
+      <button class="big close">CANCEL</button>
     </div>
   </div>
 
@@ -90,41 +188,49 @@
         <div>
           <h3>📱 Touch</h3>
           <ul>
-            <li><b>Left thumb</b>: drag to steer / spin in the air</li>
-            <li><b>PUSH</b>: speed up · <b>BRAKE</b>: slow down</li>
+            <li><b>Left thumb</b>: steer / spin in the air / walk</li>
+            <li><b>PUSH</b> speed up · <b>BRAKE</b> slow down (powerslide when fast)</li>
+            <li><b>REVERT</b>: tap as you land to spin back around</li>
             <li><b>Right side</b>: swipe for tricks
               <ul>
                 <li>Tap or ↑ Ollie · ↖ Kickflip · ↗ Heelflip</li>
                 <li>← Pop Shove-it · → FS Shove-it</li>
-                <li>↙ 360 Flip · ↘ Laser Flip</li>
-                <li>Swipe ↓ and hold = Manual</li>
+                <li>↙ 360 Flip · ↘ Laser Flip · Swipe ↓ and hold = Manual</li>
               </ul>
             </li>
-            <li><b>GRAB</b>: hold in the air, let go before landing</li>
-            <li>Switch to <b>Pro flick</b> in Settings for the real Skate-style flick</li>
+            <li><b>GRAB</b> in the air (let go before landing). Swipe while grabbing = Fingerflip. Hold GRAB and tap = Boneless.</li>
+            <li>Turn on <b>Pro flick</b> in Settings for every trick, Skate style.</li>
           </ul>
         </div>
         <div>
           <h3>🎮 Controller (flick-it)</h3>
           <ul>
-            <li><b>Left stick</b>: steer, spin in air, pick grab/grind</li>
-            <li><b>Right stick</b>: pull ↓ then flick ↑ = Ollie</li>
-            <li>↓ then flick ↖ / ↗ = Kickflip / Heelflip</li>
-            <li>↓ then roll through ← or → up = 360 Flip / Laser Flip</li>
-            <li>↓ then ← or → and let go = Shove-its</li>
-            <li>Start ↑ instead of ↓ = Nollie version</li>
-            <li>Hold ↓ softly = Manual, hold ↑ = Nose manual</li>
-            <li>A / ✕ Push · X / □ Brake · LT RT / L2 R2 Grabs</li>
-            <li>Y / △ Back to marker · D-pad ↑ Set marker · B / ○ Camera</li>
-          </ul>
-          <h3>⌨️ Keyboard</h3>
-          <ul>
-            <li>WASD steer/push/brake · Space Ollie · Q Kickflip · E Heelflip</li>
-            <li>R Shove-it · F 360 Flip · Z/C Grab · T Marker · V Camera · Esc Pause</li>
+            <li><b>RS ↓ then flick ↑</b> Ollie · ↖ Kickflip · ↗ Heelflip</li>
+            <li>Flick super fast ↖/↗ = Double flips · flick ↑ fast = Impossible</li>
+            <li>↓ → ← then ↖ Varial Kickflip · ↓ → → then ↗ Varial Heelflip</li>
+            <li>↓ → → then ↖ Hardflip · ↓ → ← then ↗ Inward Heelflip</li>
+            <li>↓ roll through ← to ↑ = 360 Flip · through → = Laser Flip</li>
+            <li>↓ → ← / → and let go = Shove-its · ↓ → side → ↓ and let go = 360 Shove-it</li>
+            <li>Start from RS ↑ = Nollie · riding backwards = Fakie / Switch</li>
+            <li>Pull RS ↓ longer before flicking = higher pop</li>
+            <li>Hold RS ↓ softly = Manual · ↑ softly = Nose manual</li>
+            <li>A/✕ Push · X/□ Brake · B/○ Revert · Y/△ Off board</li>
+            <li>LT RT / L2 R2 Grabs (LS picks the grab) · LS picks grind type</li>
+            <li>D-pad ↑ Set marker · ↓ Go to marker · ← Bail · → Object dropper</li>
+            <li>View/Create Replay editor · Click LS Camera</li>
           </ul>
         </div>
       </div>
-      <p class="muted small">Land with your board lined up with where you're going (forwards or fakie). Spin halfway and you'll bail. Grind by landing on rails, ledges and coping.</p>
+      <h3>Skate 3 details</h3>
+      <ul class="small">
+        <li>Land with the board lined up (forwards or fakie). Land half-turned and you bail. Barely finish a flip = <b>Sketchy</b> (half points).</li>
+        <li>Fly along tall walls for a <b>Wallride</b>, flick to <b>Wallie</b> off. Kinked rails and hubbas keep your grind going.</li>
+        <li>Named <b>gaps</b>: 5 Stair, Funbox Gap, Halfpipe Transfer, Hill Kicker Gap, Mega Ramp Gap.</li>
+        <li><b>Hall of Meat</b>: every bail scores damage and broken bones. Bail on purpose with D-pad ←.</li>
+        <li><b>Game modes</b>: Own the Spot, S.K.A.T.E., Hall of Meat and Death Race.</li>
+      </ul>
+      <h3>⌨️ Keyboard</h3>
+      <p class="small muted">WASD ride · Space Ollie · Q Kickflip · E Heelflip · R Shove-it · F 360 Flip · X Laser Flip · 1–6 Varial/Hard/Double/Impossible/360 Shove/Inward · Shift+trick Nollie · Z/C Grab · H Revert · O Off board · B Bail · N Dropper · M Replay · G/T Marker · V Camera · Esc Pause</p>
       <button class="big close">GOT IT</button>
     </div>
   </div>
@@ -137,7 +243,10 @@
         <select id="sFlickMode"><option value="simple">Simple swipe</option><option value="pro">Pro flick (Skate style)</option></select></label>
       <label class="opt"><span>Auto-push (touch)</span><input type="checkbox" id="sAutoPush"></label>
       <label class="opt"><span>Left-handed touch layout</span><input type="checkbox" id="sLefty"></label>
-      <label class="opt"><span>Sound</span><input type="checkbox" id="sSound" checked></label>
+      <label class="opt"><span>Sound effects</span><input type="checkbox" id="sSound" checked></label>
+      <label class="opt"><span>Radio</span>
+        <select id="sRadio"><option value="off">Off</option><option value="boombap">Boom Bap FM</option><option value="punk">Punk Radio</option></select></label>
+      <label class="opt"><span>Other skaters in the park</span><input type="checkbox" id="sNpcs" checked></label>
       <label class="opt"><span>Camera</span>
         <select id="sCamera"><option value="skate">Skate cam (low)</option><option value="far">Far cam</option></select></label>
       <label class="opt"><span>Graphics</span>

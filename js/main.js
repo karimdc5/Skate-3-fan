@@ -1,18 +1,22 @@
 import * as THREE from 'three';
 import { World, buildSky } from './world.js';
-import { Skater } from './skater.js';
+import { Skater, DEFAULT_LOOK } from './skater.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
 import { Score } from './score.js';
 import { ControllerTool } from './controllers.js';
-import { settings, saveSettings, isTouch } from './storage.js';
+import { Particles } from './fx.js';
+import { Npcs } from './npc.js';
+import { Replay } from './replay.js';
+import { Modes, MODES } from './modes.js';
+import { settings, saveSettings, isTouch, load, save } from './storage.js';
 import { detectType, typeLabel } from './gamepad.js';
 
 const $ = id => document.getElementById(id);
 
 // ---------- renderer / scene ----------
 const canvas = $('game');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
@@ -32,6 +36,7 @@ sc.left = -22; sc.right = 22; sc.top = 22; sc.bottom = -22; sc.near = 1; sc.far 
 sun.shadow.bias = -0.0008;
 scene.add(sun, sun.target);
 
+let baseFov = 72;
 function applyQuality() {
   const high = settings.quality === 'high';
   renderer.shadowMap.enabled = high;
@@ -45,7 +50,8 @@ function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
-  camera.fov = w < h ? 85 : (settings.camera === 'far' ? 65 : 72);
+  baseFov = w < h ? 85 : (settings.camera === 'far' ? 65 : 72);
+  camera.fov = baseFov;
   camera.updateProjectionMatrix();
   checkRotate();
 }
@@ -59,13 +65,35 @@ const score = new Score(sound);
 const skater = new Skater(scene, world, sound, score);
 const input = new Input();
 const padTool = new ControllerTool(input);
+const fx = new Particles(scene);
+const npcs = new Npcs(scene, world, 3);
+const replay = new Replay(skater, camera, canvas);
+const look = Object.assign({}, DEFAULT_LOOK, load('look', {}));
+skater.applyLook(look);
+skater.onGrindFx = (p, kind, s) => fx.sparks(p, kind, s);
 skater.spawn(world.spawns.plaza.pos, world.spawns.plaza.heading);
+npcs.setEnabled(settings.npcs !== false);
+sound.setRadio(settings.radio || 'off');
 
 // ---------- UI state ----------
-let state = 'menu'; // menu | play | pause
-const overlays = ['menu', 'pause', 'how', 'settings', 'pads'];
+let state = 'menu'; // menu | play | pause | replay
+const overlays = ['menu', 'pause', 'how', 'settings', 'pads', 'modes', 'modeResult', 'custom', 'dropper'];
 let returnTo = 'menu';
 let rotateDismissed = false;
+let lastModeId = null;
+
+const modes = new Modes({
+  skater, world, score, scene, sound,
+  onEnd: (result) => {
+    $('pQuitMode').classList.add('hidden');
+    if (!result) return;
+    state = 'pause';
+    $('mrTitle').textContent = result.title;
+    $('mrMedal').textContent = result.medal;
+    $('mrText').textContent = result.text;
+    show('modeResult');
+  },
+});
 
 function show(id) {
   for (const o of overlays) $(o).classList.toggle('hidden', o !== id);
@@ -86,13 +114,15 @@ function pause() {
 }
 
 function openSub(id) {
-  returnTo = state === 'menu' ? 'menu' : 'pause';
+  if (state === 'menu') returnTo = 'menu';
+  else returnTo = 'pause';
   if (state === 'play') state = 'pause';
   show(id);
 }
 
 function closeSub() {
-  show(returnTo);
+  if (returnTo === 'menu') show('menu');
+  else play();
 }
 
 function updateTouchVisibility() {
@@ -106,8 +136,31 @@ function checkRotate() {
   $('rotate').classList.toggle('hidden', !(isTouch && portrait && !rotateDismissed));
 }
 
+function openReplay() {
+  if (state !== 'play' && state !== 'pause') return;
+  if (!replay.open()) { score.toast('Skate a bit first, then open the replay'); return; }
+  state = 'replay';
+  show(null);
+  $('hud').classList.add('hidden');
+  $('touch').classList.add('hidden');
+}
+replay.onExit = () => {
+  $('hud').classList.remove('hidden');
+  resize();
+  play();
+};
+
+function startMode(id) {
+  lastModeId = id;
+  modes.start(id);
+  $('pQuitMode').classList.remove('hidden');
+  play();
+}
+
 // main menu
-$('mPlay').addEventListener('click', play);
+$('mPlay').addEventListener('click', () => { modes.stop(true); $('pQuitMode').classList.add('hidden'); play(); });
+$('mModes').addEventListener('click', () => { renderModes(); openSub('modes'); });
+$('mCustom').addEventListener('click', () => openSub('custom'));
 $('mControllers').addEventListener('click', () => openSub('pads'));
 $('mHow').addEventListener('click', () => openSub('how'));
 $('mSettings').addEventListener('click', () => openSub('settings'));
@@ -116,48 +169,119 @@ $('pResume').addEventListener('click', play);
 $('pControllers').addEventListener('click', () => openSub('pads'));
 $('pHow').addEventListener('click', () => openSub('how'));
 $('pSettings').addEventListener('click', () => openSub('settings'));
-const spawnAt = name => { skater.spawn(world.spawns[name].pos, world.spawns[name].heading); play(); };
-$('pSpawnPlaza').addEventListener('click', () => spawnAt('plaza'));
-$('pSpawnHalf').addEventListener('click', () => spawnAt('half'));
-$('pSpawnHill').addEventListener('click', () => spawnAt('hill'));
+$('pCustom').addEventListener('click', () => openSub('custom'));
+$('pModes').addEventListener('click', () => { renderModes(); openSub('modes'); });
+$('pDropper').addEventListener('click', () => openSub('dropper'));
+$('pReplay').addEventListener('click', openReplay);
+$('pQuitMode').addEventListener('click', () => { modes.stop(true); $('pQuitMode').classList.add('hidden'); play(); });
+for (const b of document.querySelectorAll('[data-spawn]')) {
+  b.addEventListener('click', () => {
+    const s = world.spawns[b.dataset.spawn];
+    skater.spawn(s.pos, s.heading);
+    play();
+  });
+}
 for (const b of document.querySelectorAll('.overlay .close')) b.addEventListener('click', closeSub);
+// mode result
+$('mrRetry').addEventListener('click', () => startMode(lastModeId));
+$('mrExit').addEventListener('click', play);
 // HUD buttons
 $('btnPause').addEventListener('click', pause);
 $('btnPad').addEventListener('click', () => openSub('pads'));
 $('btnMarker').addEventListener('click', () => setMarker());
 $('btnRespawn').addEventListener('click', () => toMarker());
+$('btnWalk').addEventListener('click', () => input.sendEvent('offBoard'));
+$('btnReplay').addEventListener('click', openReplay);
 $('rotateDismiss').addEventListener('click', () => { rotateDismissed = true; checkRotate(); });
 
+function renderModes() {
+  const list = $('modeList');
+  list.innerHTML = '';
+  for (const m of MODES) {
+    const b = document.createElement('button');
+    b.className = 'mode-card';
+    const t = document.createElement('b'); t.textContent = m.name;
+    const d = document.createElement('span'); d.textContent = m.desc;
+    const r = document.createElement('span'); r.textContent = modes.bestText(m);
+    b.append(t, d, r);
+    b.addEventListener('click', () => startMode(m.id));
+    list.append(b);
+  }
+}
+
 function setMarker() {
-  if (skater.setMarker()) score.toast('📍 Marker set');
+  if (skater.setMarker()) score.toast('📍 Session marker set');
   else score.toast('Stand on the ground to set a marker');
 }
 function toMarker() {
   skater.toMarker(world.spawns.plaza);
 }
 
+// object dropper
+for (const b of document.querySelectorAll('[data-drop]')) {
+  b.addEventListener('click', () => {
+    const travel = skater.heading + (skater.fakie && skater.mode !== 'walk' ? Math.PI : 0);
+    const h = skater.mode === 'walk' ? Math.atan2(skater.walkDir.x, skater.walkDir.z) : travel;
+    world.drop(b.dataset.drop, skater.pos, h);
+    score.toast('📦 Object dropped');
+    play();
+  });
+}
+$('dClear').addEventListener('click', () => { world.clearDropped(); score.toast('Dropped objects removed'); play(); });
+
+// create-a-skater
+const lookInputs = { cShirt: 'shirt', cPants: 'pants', cSkin: 'skin', cShoes: 'shoes', cCap: 'cap', cDeck: 'deck' };
+function syncLookUI() {
+  for (const [id, key] of Object.entries(lookInputs)) $(id).value = look[key];
+  $('cStance').value = look.stance;
+}
+function lookChanged() {
+  skater.applyLook(look);
+  save('look', look);
+}
+for (const [id, key] of Object.entries(lookInputs)) {
+  $(id).addEventListener('input', e => { look[key] = e.target.value; lookChanged(); });
+}
+$('cStance').addEventListener('change', e => { look.stance = e.target.value; lookChanged(); });
+$('cRandom').addEventListener('click', () => {
+  const rc = () => '#' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
+  const skins = ['#f1c27d', '#e0ac69', '#c68642', '#8d5524', '#ffdbac'];
+  Object.assign(look, { shirt: rc(), pants: rc(), shoes: rc(), cap: rc(), deck: rc(), skin: skins[Math.floor(Math.random() * skins.length)] });
+  syncLookUI();
+  lookChanged();
+});
+$('cDefault').addEventListener('click', () => { Object.assign(look, DEFAULT_LOOK); syncLookUI(); lookChanged(); });
+syncLookUI();
+
 // settings
-const sFlick = $('sFlickMode'), sAuto = $('sAutoPush'), sLefty = $('sLefty'), sSound = $('sSound'), sCam = $('sCamera'), sQ = $('sQuality');
+const sFlick = $('sFlickMode'), sAuto = $('sAutoPush'), sLefty = $('sLefty'), sSound = $('sSound'), sCam = $('sCamera'), sQ = $('sQuality'), sRadio = $('sRadio'), sNpcs = $('sNpcs');
 sFlick.value = settings.flickMode;
 sAuto.checked = settings.autoPush;
 sLefty.checked = settings.lefty;
 sSound.checked = settings.sound;
 sCam.value = settings.camera;
 sQ.value = settings.quality;
+sRadio.value = settings.radio || 'off';
+sNpcs.checked = settings.npcs !== false;
 const onSetting = () => {
   settings.flickMode = sFlick.value;
   settings.autoPush = sAuto.checked;
   settings.lefty = sLefty.checked;
   settings.sound = sSound.checked;
   settings.camera = sCam.value;
+  settings.radio = sRadio.value;
+  settings.npcs = sNpcs.checked;
   const qChanged = settings.quality !== sQ.value;
   settings.quality = sQ.value;
   saveSettings();
+  sound.unlock();
   sound.setEnabled(settings.sound);
+  sound.setRadio(settings.radio);
+  npcs.setEnabled(settings.npcs);
   document.body.classList.toggle('lefty', settings.lefty);
   if (qChanged) applyQuality(); else resize();
 };
-for (const el of [sFlick, sAuto, sLefty, sSound, sCam, sQ]) el.addEventListener('change', onSetting);
+for (const el of [sFlick, sAuto, sLefty, sSound, sCam, sQ, sRadio, sNpcs]) el.addEventListener('change', onSetting);
 $('sReset').addEventListener('click', () => {
   if (confirm('Reset your score and challenges?')) score.resetAll();
 });
@@ -185,9 +309,10 @@ let camInit = false;
 
 function updateCamera(dt) {
   const far = settings.camera === 'far';
-  const dist = far ? 6.2 : 3.5;
-  const height = far ? 2.6 : 1.15;
-  const look = far ? 1.0 : 0.75;
+  const walk = skater.mode === 'walk';
+  const dist = far ? 6.2 : walk ? 3.2 : 3.5;
+  const height = far ? 2.6 : walk ? 1.6 : 1.15;
+  const look = far ? 1.0 : walk ? 1.2 : 0.75;
 
   const p = skater.pos;
   if (!camInit) {
@@ -211,8 +336,9 @@ function updateCamera(dt) {
   }
   let diff = want - camYaw;
   diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-  const rate = skater.mode === 'air' ? 1.5 : 2 + Math.min(hs, 8) * 0.5;
+  const rate = skater.mode === 'air' ? 1.5 : walk ? 1.2 : 2 + Math.min(hs, 8) * 0.5;
   camYaw += diff * (1 - Math.exp(-rate * dt));
+  input.camYaw = camYaw;
 
   const desired = new THREE.Vector3(
     camTarget.x - Math.sin(camYaw) * dist,
@@ -224,9 +350,21 @@ function updateCamera(dt) {
   if (!camInit) { camPos.copy(desired); camInit = true; }
   camPos.lerp(desired, 1 - Math.exp(-10 * dt));
   camera.position.copy(camPos);
+  // screen shake on hard landings and slams
+  if (skater.shake > 0) {
+    const s = skater.shake * 0.12;
+    camera.position.x += (Math.random() - 0.5) * s;
+    camera.position.y += (Math.random() - 0.5) * s;
+    camera.position.z += (Math.random() - 0.5) * s;
+  }
   camera.lookAt(camTarget.x, camTarget.y + look, camTarget.z);
+  // the skate cam widens with speed for that fisheye feel
+  const fov = baseFov + (far ? 0 : Math.min(18, skater.speed) * 0.6);
+  if (Math.abs(camera.fov - fov) > 0.05) {
+    camera.fov += (fov - camera.fov) * (1 - Math.exp(-4 * dt));
+    camera.updateProjectionMatrix();
+  }
 
-  // shadows follow the skater
   sun.position.set(p.x + 18, p.y + 30, p.z + 10);
   sun.target.position.copy(p);
 }
@@ -245,6 +383,7 @@ function frame(now) {
 
   input.update(dt);
   const ev = padTool.listening ? new Set() : input.events;
+  input.events = ev;
 
   if (input.padConnected !== lastPad) {
     lastPad = input.padConnected;
@@ -259,6 +398,8 @@ function frame(now) {
   if (state === 'play') {
     if (ev.has('pause')) pause();
     else if (ev.has('pads')) openSub('pads');
+    else if (ev.has('replay')) openReplay();
+    else if (ev.has('dropper')) openSub('dropper');
     else {
       if (ev.has('respawn')) toMarker();
       if (ev.has('marker')) setMarker();
@@ -269,7 +410,15 @@ function frame(now) {
         resize();
       }
       skater.update(dt, input);
+      npcs.update(dt, skater);
+      modes.update(dt);
+      replay.record(dt);
     }
+    fx.update(dt);
+    updateCamera(dt);
+  } else if (state === 'replay') {
+    if (ev.has('pause') || ev.has('replay')) replay.close();
+    replay.update(dt);
   } else {
     // simple controller navigation of menus
     if (ev.has('pause')) {
@@ -280,11 +429,11 @@ function frame(now) {
     } else if (input.push && !$('menu').classList.contains('hidden')) {
       play();
     }
+    updateCamera(dt);
   }
 
   if (padTool.isOpen) padTool.update();
-  speedo.textContent = `${Math.round(skater.speed * 3.6)} km/h`;
-  updateCamera(dt);
+  speedo.textContent = `${Math.round(skater.speed * 3.6)} km/h${skater.fakie && skater.mode === 'ground' && skater.speed > 1 ? ' · FAKIE' : ''}${skater.mode === 'walk' ? ' · ON FOOT' : ''}`;
   renderer.render(scene, camera);
 }
 
@@ -297,4 +446,4 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 }
 
 // expose for debugging in the console
-window.skateFan = { skater, world, input, score };
+window.skateFan = { skater, world, input, score, modes, replay, npcs };

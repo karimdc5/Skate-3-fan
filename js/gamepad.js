@@ -7,17 +7,23 @@ import { load, save } from './storage.js';
 export const ACTIONS = [
   ['push', 'Push'],
   ['brake', 'Brake / powerslide'],
+  ['revert', 'Revert'],
+  ['offBoard', 'Get on / off board'],
   ['grabL', 'Grab (left hand)'],
   ['grabR', 'Grab (right hand)'],
-  ['respawn', 'Back to marker'],
-  ['marker', 'Set marker'],
+  ['marker', 'Set session marker'],
+  ['respawn', 'Go to session marker'],
+  ['bail', 'Bail on purpose'],
+  ['dropper', 'Object dropper'],
+  ['replay', 'Replay editor'],
   ['camera', 'Switch camera'],
   ['pause', 'Pause'],
   ['pads', 'Controller screen'],
 ];
 
 export const DEFAULT_MAP = {
-  push: 0, brake: 2, grabL: 6, grabR: 7, respawn: 3, marker: 12, camera: 1, pause: 9, pads: 8,
+  push: 0, revert: 1, brake: 2, offBoard: 3, grabL: 6, grabR: 7, marker: 12, respawn: 13,
+  bail: 14, dropper: 15, replay: 8, camera: 10, pause: 9, pads: -1,
 };
 
 const GLYPHS = {
@@ -30,6 +36,8 @@ export const padSettings = Object.assign(
   { deadzone: 0.18, swap: false, rumble: true, preferred: null },
   load('pad', {})
 );
+// v2 changed the default layout to match Skate 3; old saved maps are replaced once
+if (padSettings.mapVersion !== 2) { padSettings.map = {}; padSettings.mapVersion = 2; }
 padSettings.map = Object.assign({}, DEFAULT_MAP, padSettings.map || {});
 
 export function savePadSettings() {
@@ -48,6 +56,7 @@ export function typeLabel(type) {
 }
 
 export function glyph(type, index) {
+  if (index == null || index < 0) return '–';
   const g = GLYPHS[type] || GLYPHS.generic;
   return g[index] ?? 'B' + index;
 }

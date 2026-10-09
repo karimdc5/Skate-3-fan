@@ -35,6 +35,7 @@ export class Sound {
     this.grind = this.loopNoise('bandpass', 2600, 6);
     this.ready = true;
     if (ctx.state === 'suspended') ctx.resume();
+    if (this.station) this.setRadio(this.station);
   }
 
   setEnabled(on) {
@@ -114,6 +115,98 @@ export class Sound {
     this.burst('lowpass', 600, 0.5, 0.9);
     this.thump(70, 0.35, 0.9);
     setTimeout(() => this.ready && this.burst('highpass', 2500, 0.15, 0.4), 180);
+  }
+
+  // ---------- radio: little procedural loops (no copyrighted music) ----------
+  setRadio(station) {
+    this.station = station;
+    if (!this.ready) return;
+    if (!this.musicBus) {
+      this.musicBus = this.ctx.createGain();
+      this.musicBus.gain.value = 0.22;
+      this.musicBus.connect(this.ctx.destination);
+    }
+    clearInterval(this.musicTimer);
+    if (!station || station === 'off') return;
+    const bpm = station === 'punk' ? 168 : 88;
+    this.stepDur = 60 / bpm / 4;
+    this.step = 0;
+    this.nextTime = this.ctx.currentTime + 0.1;
+    this.musicTimer = setInterval(() => this.schedule(), 25);
+  }
+
+  schedule() {
+    const ctx = this.ctx;
+    while (this.nextTime < ctx.currentTime + 0.12) {
+      this.playStep(this.step, this.nextTime);
+      const swing = this.station === 'boombap' && this.step % 2 === 0 ? 1.12 : this.station === 'boombap' ? 0.88 : 1;
+      this.nextTime += this.stepDur * swing;
+      this.step = (this.step + 1) % 64;
+    }
+  }
+
+  playStep(step, t) {
+    const s16 = step % 16;
+    const bar = Math.floor(step / 16);
+    if (this.station === 'boombap') {
+      if ([0, 7, 10].includes(s16)) this.drum('kick', t);
+      if (s16 === 4 || s16 === 12) this.drum('snare', t);
+      if (s16 % 2 === 0) this.drum('hat', t, s16 % 4 === 2 ? 0.5 : 0.3);
+      const roots = [45, 45, 41, 43];
+      if ([0, 3, 8, 11].includes(s16)) this.note(roots[bar], t, this.stepDur * 2.5, 'triangle', 0.5);
+      if (s16 === 0 || s16 === 8) for (const iv of [12, 15, 19]) this.note(roots[bar] + iv, t, this.stepDur * 3, 'sine', 0.12);
+    } else {
+      if (s16 === 0 || s16 === 6 || s16 === 8 || s16 === 10) this.drum('kick', t);
+      if (s16 === 4 || s16 === 12) this.drum('snare', t);
+      if (s16 % 2 === 0) this.drum('hat', t, 0.35);
+      const roots = [40, 36, 43, 38];
+      if (s16 % 2 === 0) {
+        this.note(roots[bar], t, this.stepDur * 1.8, 'sawtooth', 0.18, 900);
+        this.note(roots[bar] + 7, t, this.stepDur * 1.8, 'sawtooth', 0.12, 900);
+      }
+    }
+  }
+
+  note(midi, t, dur, type, vol, cutoff = 2000) {
+    const ctx = this.ctx;
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = cutoff;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(f).connect(g).connect(this.musicBus);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+
+  drum(kind, t, vol = 1) {
+    const ctx = this.ctx;
+    const g = ctx.createGain();
+    g.connect(this.musicBus);
+    if (kind === 'kick') {
+      const o = ctx.createOscillator();
+      o.frequency.setValueAtTime(140, t);
+      o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+      g.gain.setValueAtTime(1.2, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      o.connect(g);
+      o.start(t); o.stop(t + 0.32);
+    } else {
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise;
+      const f = ctx.createBiquadFilter();
+      f.type = kind === 'hat' ? 'highpass' : 'bandpass';
+      f.frequency.value = kind === 'hat' ? 7000 : 1800;
+      const dur = kind === 'hat' ? 0.04 : 0.18;
+      g.gain.setValueAtTime((kind === 'hat' ? 0.25 : 0.7) * vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      src.connect(f).connect(g);
+      src.start(t, Math.random()); src.stop(t + dur + 0.02);
+    }
   }
 
   blip(freq = 880) {
